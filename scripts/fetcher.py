@@ -6,10 +6,13 @@ Primary Garmin fetch + fallback to Strava if Garmin fails.
 import logging
 from datetime import datetime
 from typing import Dict, Optional
+
+# If 'garminconnect' is installed, import it.
+# pip install garminconnect
 from garminconnect import Garmin, GarminConnectConnectionError, GarminConnectTooManyRequestsError
 
-from . import config
-from .strava_fallback import strava_fetch_daily
+import scripts.config as config
+from scripts.strava_fallback import strava_fetch_daily
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +31,7 @@ def calculate_met_hours(activity_type: str, duration_minutes: float) -> float:
 def fetch_garmin_daily() -> Dict:
     """
     Fetch today's daily summary from Garmin.
-    Raises exception on failure.
+    Raises an exception on failure.
     """
     client = Garmin(config.GARMIN_USERNAME, config.GARMIN_PASSWORD)
     client.login()
@@ -41,7 +44,7 @@ def fetch_garmin_daily() -> Dict:
     calories = daily_summary.get("totalKilocalories", 0)
     resting_hr = daily_summary.get("restingHeartRate", None)
 
-    # For demonstration, we assume a single 45-min run.
+    # For demonstration, we assume a single 45-min run for MET hours.
     # Real usage: parse actual activities for accurate times.
     activity_type = "running"
     duration_minutes = 45.0
@@ -58,7 +61,8 @@ def fetch_garmin_daily() -> Dict:
 
 def fetch_daily_data_with_fallback() -> Optional[Dict]:
     """
-    Attempt Garmin first, fallback to Strava on error.
+    Attempt Garmin first; fallback to Strava on error.
+    Returns a dictionary of daily data or None if both fail.
     """
     try:
         logger.info("Attempting Garmin Connect fetch...")
