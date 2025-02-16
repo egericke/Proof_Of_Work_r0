@@ -1,19 +1,25 @@
 # scripts/database.py
 """
 Database connection and helper functions.
+Uses psycopg2 for direct Postgres (Supabase) access.
 """
 
-from typing import Optional
-import psycopg2
-from psycopg2.extensions import connection
 import logging
 import datetime
+from typing import Optional
 
-from . import config
+import psycopg2
+from psycopg2.extensions import connection
+
+import scripts.config as config
 
 logger = logging.getLogger(__name__)
 
 def get_db_connection() -> connection:
+    """
+    Create a new database connection to Supabase/Postgres.
+    Set autocommit to True for simpler usage in small scripts.
+    """
     conn = psycopg2.connect(
         host=config.SUPABASE_DB_HOST,
         port=config.SUPABASE_DB_PORT,
@@ -25,6 +31,9 @@ def get_db_connection() -> connection:
     return conn
 
 def get_last_successful_fetch_date(conn: connection) -> Optional[datetime.date]:
+    """
+    Get the most recent date we successfully fetched workout data.
+    """
     with conn.cursor() as cur:
         cur.execute("""
             SELECT last_fetch_date
@@ -36,6 +45,9 @@ def get_last_successful_fetch_date(conn: connection) -> Optional[datetime.date]:
     return row[0] if row else None
 
 def update_last_successful_fetch_date(conn: connection, date_val: datetime.date) -> None:
+    """
+    Insert a new row into fetch_metadata to mark the last successful fetch date.
+    """
     with conn.cursor() as cur:
         cur.execute(
             "INSERT INTO fetch_metadata (last_fetch_date) VALUES (%s)",
@@ -45,7 +57,7 @@ def update_last_successful_fetch_date(conn: connection, date_val: datetime.date)
 
 def store_workout_data(conn: connection, data: dict) -> None:
     """
-    Upsert daily workout stats.
+    Upsert daily workout stats in the workout_stats table.
     data keys: date, steps, distance, calories, resting_hr, met_hours
     """
     with conn.cursor() as cur:
