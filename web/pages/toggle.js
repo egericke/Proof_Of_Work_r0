@@ -10,7 +10,7 @@ export default function TogglPage() {
       const res = await fetch('/api/toggl');
       const data = await res.json();
 
-      // data is an array of { week_start, bucket, total_minutes }
+      // data = [{ week_start, bucket, total_minutes }, ...]
       const weeksMap = {};
       data.forEach((row) => {
         const w = row.week_start;
