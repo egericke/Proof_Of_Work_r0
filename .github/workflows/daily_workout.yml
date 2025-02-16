@@ -8,6 +8,7 @@ on:
 jobs:
   daily:
     runs-on: ubuntu-latest
+
     steps:
       - name: Check out
         uses: actions/checkout@v3
@@ -21,6 +22,7 @@ jobs:
         run: |
           pip install --no-cache-dir -r requirements.txt
 
+      # Pass in secrets from your GitHub repo settings -> Secrets -> Actions
       - name: Fetch data & store in Supabase
         env:
           GARMIN_USERNAME: ${{ secrets.GARMIN_USERNAME }}
