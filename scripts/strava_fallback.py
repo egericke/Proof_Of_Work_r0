@@ -1,17 +1,22 @@
 # scripts/strava_fallback.py
+"""
+Strava fallback fetch if Garmin fails.
+Requires 'stravalib' library: pip install stravalib
+"""
+
 import logging
 from typing import Dict, Optional
 from datetime import datetime
 from stravalib.client import Client
 
-from . import config
+import scripts.config as config
 
 logger = logging.getLogger(__name__)
 
 def strava_fetch_daily() -> Optional[Dict]:
     """
     Fetch the latest Strava activity as a fallback approach.
-    Returns a daily summary-like dict or None if no data.
+    Returns a daily summary-like dict or None if no data or missing credentials.
     """
     if not config.STRAVA_CLIENT_ID or not config.STRAVA_CLIENT_SECRET or not config.STRAVA_REFRESH_TOKEN:
         logger.error("Strava credentials missing.")
