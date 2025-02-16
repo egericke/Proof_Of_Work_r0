@@ -1,6 +1,8 @@
 // scripts/screenshot_chart.js
 /**
  * Puppeteer script to screenshot the Next.js dashboard.
+ * Make sure to install Puppeteer in this folder if used separately,
+ * or in the main 'web' package.json if you prefer.
  */
 const puppeteer = require('puppeteer');
 
@@ -14,7 +16,7 @@ const puppeteer = require('puppeteer');
     const page = await browser.newPage();
     await page.goto(url, { waitUntil: 'networkidle0' });
 
-    // Wait for chart or any known selector
+    // Wait for chart or known selector
     await page.waitForSelector('canvas');
     await page.screenshot({ path: 'screenshot.png', fullPage: false });
 
