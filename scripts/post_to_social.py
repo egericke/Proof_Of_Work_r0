@@ -1,18 +1,22 @@
 # scripts/post_to_social.py
 """
-Posting to Twitter and Instagram.
+Posting to Twitter and Instagram using respective APIs.
 """
 
 import sys
 import logging
 import requests
 import tweepy
-from . import config
+
+import scripts.config as config
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def post_twitter(image_path: str, message: str) -> None:
+    """
+    Post an image + message to Twitter using credentials from config.
+    """
     if not all([
         config.TWITTER_API_KEY,
         config.TWITTER_API_SECRET,
@@ -34,16 +38,21 @@ def post_twitter(image_path: str, message: str) -> None:
     logger.info("Tweet posted successfully.")
 
 def post_instagram(image_path: str, caption: str) -> None:
+    """
+    Post an image + caption to Instagram using the Graph API.
+    Note that Instagram often requires a publicly accessible URL for images.
+    """
     if not all([config.INSTAGRAM_USER_ID, config.INSTAGRAM_PAGE_ACCESS_TOKEN]):
         logger.warning("Instagram credentials missing or incomplete, skipping.")
         return
-    # For a real approach, image_url must be publicly accessible or use form data upload.
+
+    # Minimal example (requires a public image URL, not a local file path).
+    # For a real approach, you would host the image or do a multipart upload if supported.
     logger.warning("Instagram Graph API typically requires a publicly accessible image_url.")
-    # Minimal example:
+
     create_url = f"https://graph.facebook.com/v16.0/{config.INSTAGRAM_USER_ID}/media"
-    # This won't work with a local file path; you'll need to host it or do a multipart upload.
     params = {
-        "image_url": f"file://{image_path}", 
+        "image_url": f"file://{image_path}",
         "caption": caption,
         "access_token": config.INSTAGRAM_PAGE_ACCESS_TOKEN
     }
