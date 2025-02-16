@@ -1,27 +1,31 @@
 # scripts/main.py
 """
 Main script run daily by GitHub Actions:
-  1. Fetch Garmin/Strava
+  1. Fetch Garmin/Strava data
   2. Store in workout_stats
   3. Update fetch date
-  4. Toggl integration
-  5. VO2 max checks
-  6. (Habits via Google Forms is separate, handled by Apps Script)
+  4. Fetch Toggl data
+  5. Possibly handle VO2 max
+  6. Google Forms for habits is separate (Apps Script)
 """
 
 import logging
 from datetime import datetime
-from . import database
-from ..fetcher import fetch_daily_data_with_fallback
-from ..vo2max import create_vo2max_table_query, get_latest_vo2max
-from .toggl_integration import fetch_and_store_toggl_data
+
+import scripts.database as database
+from scripts.fetcher import fetch_daily_data_with_fallback
+from scripts.vo2max import create_vo2max_table_query, get_latest_vo2max
+from scripts.toggl_integration import fetch_and_store_toggl_data
 
 logger = logging.getLogger(__name__)
 
 def main() -> None:
+    # Setup logging if needed
+    logging.basicConfig(level=logging.INFO)
+
     conn = database.get_db_connection()
 
-    # Ensure vo2max table
+    # Ensure the vo2max table exists
     with conn.cursor() as cur:
         cur.execute(create_vo2max_table_query())
 
@@ -49,4 +53,5 @@ def main() -> None:
     logger.info("Daily run complete.")
 
 if __name__ == "__main__":
+    # Recommended: run with "python -m scripts.main" from the project root
     main()
