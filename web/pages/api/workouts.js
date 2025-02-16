@@ -1,7 +1,10 @@
 // web/pages/api/workouts.js
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY // Use a restricted key or RLS if possible
+);
 
 export default async function handler(req, res) {
   try {
