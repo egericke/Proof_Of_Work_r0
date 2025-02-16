@@ -1,13 +1,17 @@
 # scripts/config.py
 """
 Environment and logging configuration.
+Loads environment variables from .env for local usage,
+or from GitHub Actions secrets in CI.
 """
 
 import os
 import logging
 from dotenv import load_dotenv
 
-load_dotenv()  # Only needed locally; in CI, environment variables are provided differently.
+# Load .env only when running locally; in production (GitHub Actions, etc.),
+# the environment variables come from secrets configured in the workflow.
+load_dotenv()
 
 logging.basicConfig(
     level=logging.INFO,
