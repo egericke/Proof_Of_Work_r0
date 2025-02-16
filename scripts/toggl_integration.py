@@ -1,16 +1,16 @@
 # scripts/toggl_integration.py
 """
-Toggl integration: fetch time entries, map to buckets, store in 'toggl_time'.
+Toggl integration: fetch time entries, map them to "Naval buckets," store in 'toggl_time'.
+Requires: pip install requests
 """
 
-import os
 import logging
 import requests
 from typing import Dict, List
 from datetime import datetime, timedelta
 from psycopg2.extensions import connection
 
-from . import config
+import scripts.config as config
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +25,9 @@ NAVAL_BUCKETS = {
 }
 
 def bucket_for_project_or_tags(project_name: str, tags: List[str]) -> str:
+    """
+    Return the "Naval bucket" name based on a project's name or its tags.
+    """
     combined = (project_name.lower() + " " + " ".join(tags).lower()).split()
     for bucket, keywords in NAVAL_BUCKETS.items():
         if any(kw in combined for kw in keywords):
@@ -32,9 +35,13 @@ def bucket_for_project_or_tags(project_name: str, tags: List[str]) -> str:
     return "Other"
 
 def fetch_toggl_entries(since_days: int = 7) -> List[dict]:
+    """
+    Fetch Toggl time entries from the last `since_days` days.
+    Uses Toggl API v8.
+    """
     toggl_api_key = config.TOGGL_API_KEY
     if not toggl_api_key:
-        logger.warning("No Toggl API key found, skipping.")
+        logger.warning("No Toggl API key found, skipping Toggl fetch.")
         return []
 
     session = requests.Session()
@@ -67,6 +74,9 @@ def fetch_toggl_entries(since_days: int = 7) -> List[dict]:
     return entries
 
 def aggregate_by_bucket_daily(entries: List[dict]) -> Dict[str, Dict[str, int]]:
+    """
+    Convert a flat list of time entries to a dict[date][bucket] = total_minutes.
+    """
     daily_buckets = {}
     for e in entries:
         date_str = e["date"]
@@ -87,6 +97,9 @@ def aggregate_by_bucket_daily(entries: List[dict]) -> Dict[str, Dict[str, int]]:
     return daily_buckets
 
 def store_toggl_data(conn: connection, daily_buckets: Dict[str, Dict[str, int]]) -> None:
+    """
+    Insert or update toggl_time records in the database.
+    """
     with conn.cursor() as cur:
         for date_str, buckets in daily_buckets.items():
             for bucket, minutes in buckets.items():
@@ -98,6 +111,9 @@ def store_toggl_data(conn: connection, daily_buckets: Dict[str, Dict[str, int]])
                 """, (date_str, bucket, minutes))
 
 def fetch_and_store_toggl_data(conn: connection, since_days: int = 7) -> None:
+    """
+    Fetch entries from Toggl, aggregate by bucket, and store in DB.
+    """
     entries = fetch_toggl_entries(since_days)
     if not entries:
         logger.info("No Toggl entries fetched or no API key, skipping.")
