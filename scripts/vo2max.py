@@ -1,6 +1,6 @@
 # scripts/vo2max.py
 """
-VO2 max storage and retrieval.
+VO2 max storage and retrieval in Supabase.
 """
 
 import logging
@@ -10,6 +10,9 @@ from psycopg2.extensions import connection
 logger = logging.getLogger(__name__)
 
 def create_vo2max_table_query() -> str:
+    """
+    Returns the SQL statement to create the vo2max_tests table if not exists.
+    """
     return """
     CREATE TABLE IF NOT EXISTS vo2max_tests (
         test_date DATE PRIMARY KEY,
@@ -19,6 +22,9 @@ def create_vo2max_table_query() -> str:
     """
 
 def insert_vo2max(conn: connection, test_date: date, vo2max_value: float, notes: str = "") -> None:
+    """
+    Insert or update a VO2 max record for a given test_date.
+    """
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -32,6 +38,10 @@ def insert_vo2max(conn: connection, test_date: date, vo2max_value: float, notes:
         )
 
 def get_latest_vo2max(conn: connection) -> float:
+    """
+    Fetch the most recent VO2 max value from vo2max_tests.
+    Returns None if no data.
+    """
     with conn.cursor() as cur:
         cur.execute("""
             SELECT vo2max_value
