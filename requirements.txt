@@ -1,0 +1,11 @@
+# Core
+psycopg2==2.9.6
+requests==2.31.0
+python-dotenv==1.0.0
+
+# Garmin & Strava
+garminconnect==0.1.46
+stravalib==0.10.4
+
+# Social Media (Twitter via Tweepy)
+tweepy==4.14.0
