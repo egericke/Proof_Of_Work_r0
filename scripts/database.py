@@ -17,8 +17,7 @@ logger = logging.getLogger(__name__)
 
 def get_db_connection() -> connection:
     """
-    Create a new database connection to Supabase/Postgres.
-    Set autocommit to True for simpler usage in small scripts.
+    Create a new database connection using credentials from config.
     """
     conn = psycopg2.connect(
         host=config.SUPABASE_DB_HOST,
