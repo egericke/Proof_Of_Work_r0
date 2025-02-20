@@ -10,3 +10,4 @@ beautifulsoup4==4.12.3
 
 # Social Media (Twitter via Tweepy)
 tweepy==4.14.0
+Pillow==10.4.0
