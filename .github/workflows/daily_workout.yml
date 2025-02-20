@@ -1,26 +1,21 @@
+# .github/workflows/daily_workout.yml
 name: Daily Workout
-
 on:
   schedule:
-    - cron: '0 1 * * *'  # Runs daily at 1:00 AM UTC
-  workflow_dispatch:     # Enables manual triggering via "Run Workflow" button
+    - cron: '0 1 * * *'
+  workflow_dispatch:
 
 jobs:
   daily:
-    runs-on: ubuntu-24.04  # Matches your latest log
-
+    runs-on: ubuntu-24.04
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v3
-
+      - uses: actions/checkout@v3
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
-
       - name: Install Python dependencies
         run: pip install --no-cache-dir -r requirements.txt
-
       - name: Fetch data and store in Supabase
         env:
           SUPABASE_DB_HOST: ${{ secrets.SUPABASE_DB_HOST }}
@@ -35,22 +30,18 @@ jobs:
           STRAVA_REFRESH_TOKEN: ${{ secrets.STRAVA_REFRESH_TOKEN }}
           TOGGL_API_KEY: ${{ secrets.TOGGL_API_KEY }}
         run: python -m scripts.main
-
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '20'  # Updated to latest LTS for Puppeteer compatibility
-
+          node-version: '20'
       - name: Install Node.js dependencies
         working-directory: ./scripts
         run: npm install
-
       - name: Generate screenshot
         working-directory: ./scripts
         run: node screenshot_chart.js
         env:
           DASHBOARD_URL: ${{ secrets.DASHBOARD_URL }}
-
       - name: Post to social media
         run: python -m scripts.post_to_social screenshot.png "Daily workout proof" --twitter --instagram
         env:
