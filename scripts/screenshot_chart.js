@@ -15,7 +15,7 @@ const fs = require('fs');
           <div>
             <p>Date: ${activity.date || 'N/A'}</p>
             <p>Activity: ${activity.activity_type || 'N/A'}</p>
-            <p>Distance: ${(parseFloat(activity.distance || 0) / 1609.34).toFixed(2)} mi</p> <!-- Convert meters back to miles for display -->
+            <p>Distance: ${(parseFloat(activity.distance || 0) / 1609.34).toFixed(2)} mi</p>
             <p>Calories: ${activity.calories || 'N/A'}</p>
             <p>Avg HR: ${activity.avg_hr || 'N/A'} bpm</p>
           </div>
