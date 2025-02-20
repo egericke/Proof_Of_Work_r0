@@ -38,7 +38,7 @@ jobs:
 
       - name: Upload debug CSV (if exists)
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4  # Updated from v3 to v4
         with:
           name: garmin-csv-debug
           path: /tmp/activities.csv
@@ -46,7 +46,7 @@ jobs:
 
       - name: Upload debug screenshots (if exists)
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4  # Updated from v3 to v4
         with:
           name: debug-screenshots
           path: scripts/*.png
@@ -77,7 +77,7 @@ jobs:
 
       - name: Upload screenshot (if exists)
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4  # Updated from v3 to v4
         with:
           name: screenshot
           path: scripts/screenshot.png
