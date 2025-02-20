@@ -1,20 +1,27 @@
 name: Daily Workout
+
 on:
   schedule:
-    - cron: '0 0 * * *'  # Daily at midnight UTC
+    - cron: '0 1 * * *'  # Runs daily at 1:00 AM UTC
+  workflow_dispatch:     # Enables manual triggering via "Run Workflow" button
+
 jobs:
   daily:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-24.04  # Matches your latest log
+
     steps:
-      - uses: actions/checkout@v3
+      - name: Check out repository
+        uses: actions/checkout@v3
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
+
       - name: Install Python dependencies
         run: pip install --no-cache-dir -r requirements.txt
-      - name: Run main script
-        run: python -m scripts.main
+
+      - name: Fetch data and store in Supabase
         env:
           SUPABASE_DB_HOST: ${{ secrets.SUPABASE_DB_HOST }}
           SUPABASE_DB_PORT: ${{ secrets.SUPABASE_DB_PORT }}
@@ -27,18 +34,23 @@ jobs:
           STRAVA_CLIENT_SECRET: ${{ secrets.STRAVA_CLIENT_SECRET }}
           STRAVA_REFRESH_TOKEN: ${{ secrets.STRAVA_REFRESH_TOKEN }}
           TOGGL_API_KEY: ${{ secrets.TOGGL_API_KEY }}
+        run: python -m scripts.main
+
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '20'  # Latest LTS as of 2025
+          node-version: '20'  # Updated to latest LTS for Puppeteer compatibility
+
       - name: Install Node.js dependencies
         working-directory: ./scripts
         run: npm install
+
       - name: Generate screenshot
         working-directory: ./scripts
         run: node screenshot_chart.js
         env:
-          DASHBOARD_URL: ${{ secrets.DASHBOARD_URL }}  # Set this in secrets
+          DASHBOARD_URL: ${{ secrets.DASHBOARD_URL }}
+
       - name: Post to social media
         run: python -m scripts.post_to_social screenshot.png "Daily workout proof" --twitter --instagram
         env:
