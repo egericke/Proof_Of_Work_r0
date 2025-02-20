@@ -1,4 +1,3 @@
-# .github/workflows/daily_workout.yml
 name: Daily Workout
 on:
   schedule:
@@ -40,8 +39,6 @@ jobs:
       - name: Generate screenshot
         working-directory: ./scripts
         run: node screenshot_chart.js
-        env:
-          DASHBOARD_URL: ${{ secrets.DASHBOARD_URL }}
       - name: Post to social media
         run: python -m scripts.post_to_social screenshot.png "Daily workout proof" --twitter --instagram
         env:
