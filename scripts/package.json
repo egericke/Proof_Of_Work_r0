@@ -1,9 +1,9 @@
-// scripts/package.json
+
 {
   "name": "screenshot-script",
   "version": "1.0.0",
   "dependencies": {
     "puppeteer": "^23.5.0",
-    "papaparse": "^5.4.1"  // Add this for CSV parsing
+    "papaparse": "^5.4.1"  
   }
 }
