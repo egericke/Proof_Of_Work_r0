@@ -1,5 +1,8 @@
 // scripts/garmin_scrape.js
 const puppeteer = require('puppeteer');
+const Papa = require('papaparse');
+const fs = require('fs');
+const path = require('path');
 
 (async () => {
   let browser;
@@ -28,28 +31,39 @@ const puppeteer = require('puppeteer');
       process.exit(1);
     }
 
-    console.log("Navigating to daily summary...");
-    const today = new Date().toISOString().split('T')[0];
-    await page.goto(`https://connect.garmin.com/modern/daily-summary/${today}`, {
+    console.log("Navigating to Activities page...");
+    await page.goto('https://connect.garmin.com/modern/activities', {
       waitUntil: 'networkidle0',
     });
 
-    console.log("Scraping data...");
-    const data = await page.evaluate(() => {
-      const getText = (selector) => document.querySelector(selector)?.innerText || '0';
-      return {
-        date: new Date().toISOString().split('T')[0],
-        steps: parseInt(getText('[data-testid="steps"]')?.replace(/[^\d]/g, '')) || 0,
-        distance: parseFloat(getText('[data-testid="distance"]')?.split(' ')[0]) * 1000 || 0, // km to meters
-        calories: parseInt(getText('[data-testid="calories"]')?.replace(/[^\d]/g, '')) || 0,
-        resting_hr: parseInt(getText('[data-testid="restingHeartRate"]')) || null,
-      };
+    console.log("Triggering CSV export...");
+    // Find and click the "Export CSV" button (adjust selector based on inspection)
+    const exportButton = await page.waitForSelector('.export-csv-btn'); // Example; update with actual class/ID
+    if (!exportButton) throw new Error("Export CSV button not found.");
+    await exportButton.click();
+
+    // Wait for download to complete (Puppeteer doesn’t directly handle downloads; use a workaround)
+    await page.waitForTimeout(5000); // Adjust delay as needed
+
+    // Assume the CSV is downloaded to a default location (e.g., /tmp in GitHub Actions)
+    const csvPath = '/tmp/activities.csv'; // Adjust based on GitHub Actions download location
+    if (!fs.existsSync(csvPath)) {
+      console.error("CSV file not found. Check export process.");
+      await page.screenshot({ path: 'export_error.png' });
+      process.exit(1);
+    }
+
+    console.log("Parsing CSV...");
+    const csvData = fs.readFileSync(csvPath, 'utf8');
+    const parsedData = Papa.parse(csvData, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (result) => result.data,
     });
 
-    data.met_hours = 10.0 * (45 / 60); // Static example
-    console.log("Data scraped:", JSON.stringify(data));
+    console.log("CSV parsed:", JSON.stringify(parsedData));
+    process.stdout.write(JSON.stringify(parsedData)); // Output for main.py
     await browser.close();
-    process.stdout.write(JSON.stringify(data)); // Ensure output for main.py
   } catch (err) {
     console.error("Error:", err.message);
     if (browser) {
