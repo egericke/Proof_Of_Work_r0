@@ -4,19 +4,22 @@ const fs = require('fs');
 
 (async () => {
   try {
-    // Get Garmin data
-    const garminData = JSON.parse(fs.readFileSync('garmin_data.json', 'utf8')); // Assume main.py saves this
+    const activities = JSON.parse(fs.readFileSync('scripts/garmin_data.json', 'utf8'));
 
     const html = `
       <!DOCTYPE html>
       <html>
       <body>
         <h1>Daily Workout Proof</h1>
-        <p>Date: ${garminData.date}</p>
-        <p>Steps: ${garminData.steps}</p>
-        <p>Distance: ${(garminData.distance / 1000).toFixed(2)} km</p>
-        <p>Calories: ${garminData.calories}</p>
-        <p>Resting HR: ${garminData.resting_hr || 'N/A'}</p>
+        ${activities.map(activity => `
+          <div>
+            <p>Date: ${activity.date || 'N/A'}</p>
+            <p>Activity: ${activity.activity_type || 'N/A'}</p>
+            <p>Distance: ${(parseFloat(activity.distance || 0) / 1609.34).toFixed(2)} mi</p> <!-- Convert meters back to miles for display -->
+            <p>Calories: ${activity.calories || 'N/A'}</p>
+            <p>Avg HR: ${activity.avg_hr || 'N/A'} bpm</p>
+          </div>
+        `).join('')}
       </body>
       </html>
     `;
