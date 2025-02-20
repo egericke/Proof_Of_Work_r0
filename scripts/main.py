@@ -20,8 +20,8 @@ def fetch_garmin_daily() -> list:
             check=True,
         )
         activities = json.loads(result.stdout)
-        logger.info(f"Retrieved {len(activities.data)} Garmin activities from CSV.")
-        return activities.data  # Papa.parse returns { data, errors, meta }
+        logger.info(f"Retrieved {len(activities)} Garmin activities from CSV.")
+        return activities
     except subprocess.CalledProcessError as e:
         logger.error("Garmin scrape failed: %s", e.stderr)
         return []
