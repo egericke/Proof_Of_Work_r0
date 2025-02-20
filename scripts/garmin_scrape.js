@@ -20,33 +20,33 @@ const path = require('path');
     await page.screenshot({ path: 'login_before.png' });
 
     console.log("Entering credentials...");
-    // Primary selector: id="email"
+    // Primary selectors
     const usernameSelector = '#email';
-    const passwordSelector = '#password'; // Assume password uses id="password"; adjust if needed
-    const submitSelector = 'input[type="submit"]'; // May need adjustment
+    const passwordSelector = '#password';
+    const submitSelector = 'button[data-testid="g__button"][type="submit"]';
 
     // Try to find and fill username field with increased timeout
     try {
-      await page.waitForSelector(usernameSelector, { timeout: 15000 }); // Increased to 15 seconds
+      await page.waitForSelector(usernameSelector, { timeout: 20000 }); // Increased to 20 seconds
       await page.type(usernameSelector, process.env.GARMIN_USERNAME || '');
     } catch (err) {
       console.error("Primary username selector (#email) failed. Trying fallback...");
       // Fallback: Use class .signin__form__input
       const usernameClass = '.signin__form__input';
       try {
-        await page.waitForSelector(usernameClass, { timeout: 10000 });
+        await page.waitForSelector(usernameClass, { timeout: 15000 });
         await page.type(usernameClass, process.env.GARMIN_USERNAME || '');
       } catch (err) {
         console.error("Class selector failed. Trying data-testid...");
         // Fallback: Use data-testid for g__input and find input within
         const gInputSelector = '[data-testid="g__input"] .signin__form__input';
         try {
-          await page.waitForSelector(gInputSelector, { timeout: 10000 });
+          await page.waitForSelector(gInputSelector, { timeout: 15000 });
           await page.type(gInputSelector, process.env.GARMIN_USERNAME || '');
         } catch (err) {
           console.error("Data-testid selector failed. Trying XPath...");
           // Fallback: Use XPath
-          const usernameXPath = '/html/body/div[1]/main/div[2]/div/div/div/div/form/section[1]/fieldset[1]/div/g-input/div/input';
+          const usernameXPath = '/html/body/div[@id="app"]/main[@id="portal"]/div[@class="portal__container"]/div[@class="portal__card"]/div[@class="portal__wrapper"]/div[@class="portal__content"]/div[@class="signin"]/form[@class="validation-form signin__form"]/section[@class="validation-form-fields"]/fieldset[@class="signin__form__input"]/div[@class="validation-input validation-form__input"]/g-input[@class="g__input"]/div[@class="g__input__wrapper"]/input[@id="email"]';
           const usernameElement = await page.$x(usernameXPath);
           if (usernameElement.length > 0) {
             await usernameElement[0].type(process.env.GARMIN_USERNAME || '');
@@ -59,17 +59,24 @@ const path = require('path');
 
     // Password field (similar fallback if needed)
     try {
-      await page.waitForSelector(passwordSelector, { timeout: 15000 });
+      await page.waitForSelector(passwordSelector, { timeout: 20000 });
       await page.type(passwordSelector, process.env.GARMIN_PASSWORD || '');
     } catch (err) {
       console.error("Password selector (#password) failed. Trying fallback...");
-      // Assume password has similar class or structure
-      const passwordClass = '.signin__form__input[type="password"]'; // Example; inspect for exact class
+      // Fallback: Use class .password-input.signin__form__input
+      const passwordClass = '.password-input.signin__form__input';
       try {
-        await page.waitForSelector(passwordClass, { timeout: 10000 });
+        await page.waitForSelector(passwordClass, { timeout: 15000 });
         await page.type(passwordClass, process.env.GARMIN_PASSWORD || '');
       } catch (err) {
-        throw new Error("Password field not found with any selector.");
+        console.error("Class selector failed. Trying data-testid...");
+        const gInputPasswordSelector = '[data-testid="g__input"] .password-input';
+        try {
+          await page.waitForSelector(gInputPasswordSelector, { timeout: 15000 });
+          await page.type(gInputPasswordSelector, process.env.GARMIN_PASSWORD || '');
+        } catch (err) {
+          throw new Error("Password field not found with any selector.");
+        }
       }
     }
 
@@ -78,9 +85,9 @@ const path = require('path');
     console.log("Waiting for navigation after login...");
     await page.waitForNavigation({ waitUntil: 'networkidle0', timeout: 30000 });
 
-    // Check if login succeeded
-    if (page.url().includes('signin')) {
-      console.error("Login failed: Still on signin page. Possible CAPTCHA or MFA.");
+    // Check if login succeeded or if CAPTCHA appears
+    if (page.url().includes('signin') || await page.$('iframe[src*="cdn-cgi"]')) {
+      console.error("Login failed: Still on signin page or CAPTCHA detected. Possible CAPTCHA or MFA.");
       await page.screenshot({ path: 'login_error.png' });
       process.exit(1);
     }
