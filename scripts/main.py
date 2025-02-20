@@ -1,20 +1,36 @@
 # scripts/main.py
-"""
-Main script run daily by GitHub Actions.
-"""
-
 import logging
+import subprocess
+import json
 from datetime import datetime
 
 import scripts.database as database
-from scripts.fetcher import fetch_daily_data_with_fallback
 from scripts.vo2max import create_vo2max_table_query, get_latest_vo2max
 from scripts.toggl_integration import fetch_and_store_toggl_data
 
 logger = logging.getLogger(__name__)
 
+def fetch_garmin_daily() -> dict:
+    """Fetch Garmin data using Puppeteer script."""
+    try:
+        result = subprocess.run(
+            ['node', 'scripts/garmin_scrape.js'],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        data = json.loads(result.stdout)
+        logger.info("Garmin data fetched successfully.")
+        return data
+    except subprocess.CalledProcessError as e:
+        logger.error("Garmin scrape failed: %s", e.stderr)
+        return None
+    except json.JSONDecodeError as e:
+        logger.error("Failed to parse Garmin data: %s", e)
+        return None
+
 def main() -> None:
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
 
     conn = database.get_db_connection()
 
@@ -22,13 +38,13 @@ def main() -> None:
     with conn.cursor() as cur:
         cur.execute(create_vo2max_table_query())
 
-    # Fetch Garmin data via scraping
+    # Fetch Garmin data
     today_str = datetime.now().strftime("%Y-%m-%d")
     last_fetch = database.get_last_successful_fetch_date(conn)
     if str(last_fetch) == today_str:
         logger.info("Already fetched data for today.")
     else:
-        daily_data = fetch_daily_data_with_fallback()
+        daily_data = fetch_garmin_daily()
         if daily_data:
             database.store_workout_data(conn, daily_data)
             database.update_last_successful_fetch_date(conn, datetime.now().date())
