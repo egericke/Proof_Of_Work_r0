@@ -1,96 +1,49 @@
 # scripts/post_to_social.py
-"""
-Posting to Twitter and Instagram using respective APIs.
-"""
-
-import sys
+import os
 import logging
-import requests
-import tweepy
+from tweepy import API, OAuthHandler
+from instagram_graph_api import InstagramGraphAPI  # Assuming this library
 
-import scripts.config as config
-
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def post_twitter(image_path: str, message: str) -> None:
-    """
-    Post an image + message to Twitter using credentials from config.
-    """
-    if not all([
-        config.TWITTER_API_KEY,
-        config.TWITTER_API_SECRET,
-        config.TWITTER_ACCESS_TOKEN,
-        config.TWITTER_ACCESS_SECRET
-    ]):
-        logger.warning("Twitter credentials missing or incomplete, skipping.")
+def post_twitter(image_path, message):
+    if not os.path.exists(image_path):
+        logger.warning(f"Skipping Twitter post: {image_path} not found.")
         return
-
-    auth = tweepy.OAuth1UserHandler(
-        config.TWITTER_API_KEY,
-        config.TWITTER_API_SECRET,
-        config.TWITTER_ACCESS_TOKEN,
-        config.TWITTER_ACCESS_SECRET
-    )
-    api = tweepy.API(auth)
+    auth = OAuthHandler(os.getenv("TWITTER_API_KEY"), os.getenv("TWITTER_API_SECRET"))
+    auth.set_access_token(os.getenv("TWITTER_ACCESS_TOKEN"), os.getenv("TWITTER_ACCESS_SECRET"))
+    api = API(auth, wait_on_rate_limit=True)
     media = api.media_upload(image_path)
     api.update_status(status=message, media_ids=[media.media_id])
-    logger.info("Tweet posted successfully.")
+    logger.info("Posted to Twitter successfully.")
 
-def post_instagram(image_path: str, caption: str) -> None:
-    """
-    Post an image + caption to Instagram using the Graph API.
-    Note that Instagram often requires a publicly accessible URL for images.
-    """
-    if not all([config.INSTAGRAM_USER_ID, config.INSTAGRAM_PAGE_ACCESS_TOKEN]):
-        logger.warning("Instagram credentials missing or incomplete, skipping.")
+def post_instagram(image_path, message):
+    if not os.path.exists(image_path):
+        logger.warning(f"Skipping Instagram post: {image_path} not found.")
         return
+    api = InstagramGraphAPI(
+        user_id=os.getenv("INSTAGRAM_USER_ID"),
+        access_token=os.getenv("INSTAGRAM_PAGE_ACCESS_TOKEN")
+    )
+    with open(image_path, 'rb') as f:
+        api.publish_photo(f, caption=message)
+    logger.info("Posted to Instagram successfully.")
 
-    # Minimal example (requires a public image URL, not a local file path).
-    # For a real approach, you would host the image or do a multipart upload if supported.
-    logger.warning("Instagram Graph API typically requires a publicly accessible image_url.")
+def main():
+    import argparse
+    parser = argparse.ArgumentParser(description="Post workout data to social media.")
+    parser.add_argument("image_path", help="Path to the screenshot image")
+    parser.add_argument("message", help="Message to post")
+    parser.add_argument("--twitter", action="store_true", help="Post to Twitter")
+    parser.add_argument("--instagram", action="store_true", help="Post to Instagram")
+    args = parser.parse_args()
 
-    create_url = f"https://graph.facebook.com/v16.0/{config.INSTAGRAM_USER_ID}/media"
-    params = {
-        "image_url": f"file://{image_path}",
-        "caption": caption,
-        "access_token": config.INSTAGRAM_PAGE_ACCESS_TOKEN
-    }
-    resp = requests.post(create_url, data=params)
-    if resp.status_code != 200:
-        logger.error("IG media creation failed: %s", resp.text)
-        return
-    media_id = resp.json().get("id")
+    logging.basicConfig(level=logging.INFO)
 
-    publish_url = f"https://graph.facebook.com/v16.0/{config.INSTAGRAM_USER_ID}/media_publish"
-    publish_params = {
-        "creation_id": media_id,
-        "access_token": config.INSTAGRAM_PAGE_ACCESS_TOKEN
-    }
-    pub_resp = requests.post(publish_url, data=publish_params)
-    if pub_resp.status_code == 200:
-        logger.info("Instagram post published.")
-    else:
-        logger.error("IG publish failed: %s", pub_resp.text)
+    if args.twitter:
+        post_twitter(args.image_path, args.message)
+    if args.instagram:
+        post_instagram(args.image_path, args.message)
 
 if __name__ == "__main__":
-    """
-    Usage:
-      python -m scripts.post_to_social screenshot.png "Daily proof" --twitter --instagram
-    """
-    if len(sys.argv) < 3:
-        print("Usage: post_to_social.py <image_path> <message> [--twitter] [--instagram]")
-        sys.exit(1)
-
-    image_path = sys.argv[1]
-    message = sys.argv[2]
-    do_twitter = "--twitter" in sys.argv
-    do_instagram = "--instagram" in sys.argv
-
-    if not do_twitter and not do_instagram:
-        do_twitter = True
-
-    if do_twitter:
-        post_twitter(image_path, message)
-    if do_instagram:
-        post_instagram(image_path, message)
+    main()
