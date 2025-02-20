@@ -38,7 +38,7 @@ jobs:
 
       - name: Upload debug CSV (if exists)
         if: always()
-        uses: actions/upload-artifact@v4  # Updated from v3 to v4
+        uses: actions/upload-artifact@v4
         with:
           name: garmin-csv-debug
           path: /tmp/activities.csv
@@ -46,7 +46,7 @@ jobs:
 
       - name: Upload debug screenshots (if exists)
         if: always()
-        uses: actions/upload-artifact@v4  # Updated from v3 to v4
+        uses: actions/upload-artifact@v4
         with:
           name: debug-screenshots
           path: scripts/*.png
@@ -71,19 +71,18 @@ jobs:
       - name: Generate screenshot
         working-directory: ./scripts
         run: node screenshot_chart.js
-        env:
-          DASHBOARD_URL: ${{ secrets.DASHBOARD_URL }}  # Ensure this is set if needed
         continue-on-error: true
 
       - name: Upload screenshot (if exists)
         if: always()
-        uses: actions/upload-artifact@v4  # Updated from v3 to v4
+        uses: actions/upload-artifact@v4
         with:
           name: screenshot
           path: scripts/screenshot.png
           if-no-files-found: ignore
 
       - name: Post to social media
+        if: success() && steps.generate_screenshot.outcome == 'success'  # Only if screenshot exists
         run: python -m scripts.post_to_social screenshot.png "Daily workout proof" --twitter --instagram
         env:
           TWITTER_API_KEY: ${{ secrets.TWITTER_API_KEY }}
