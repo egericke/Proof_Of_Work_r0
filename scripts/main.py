@@ -10,18 +10,24 @@ from scripts.toggl_integration import fetch_and_store_toggl_data
 
 logger = logging.getLogger(__name__)
 
-def fetch_garmin_daily() -> dict:
-    result = subprocess.run(
-        ['node', 'scripts/garmin_scrape.js'],
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    data = json.loads(result.stdout)
-    with open('scripts/garmin_data.json', 'w') as f:
-        json.dump(data, f)
-    logger.info("Garmin data fetched and saved.")
-    return data
+def fetch_garmin_daily() -> list:
+    """Fetch Garmin activities via CSV export using Puppeteer script."""
+    try:
+        result = subprocess.run(
+            ['node', 'scripts/garmin_scrape.js'],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        activities = json.loads(result.stdout)
+        logger.info(f"Retrieved {len(activities.data)} Garmin activities from CSV.")
+        return activities.data  # Papa.parse returns { data, errors, meta }
+    except subprocess.CalledProcessError as e:
+        logger.error("Garmin scrape failed: %s", e.stderr)
+        return []
+    except json.JSONDecodeError as e:
+        logger.error("Failed to parse Garmin data: %s", e)
+        return []
 
 def main() -> None:
     logging.basicConfig(level=logging.INFO)
@@ -32,15 +38,16 @@ def main() -> None:
     with conn.cursor() as cur:
         cur.execute(create_vo2max_table_query())
 
-    # Fetch Garmin data
+    # Fetch Garmin activities
     today_str = datetime.now().strftime("%Y-%m-%d")
     last_fetch = database.get_last_successful_fetch_date(conn)
     if str(last_fetch) == today_str:
         logger.info("Already fetched data for today.")
     else:
-        daily_data = fetch_garmin_daily()
-        if daily_data:
-            database.store_workout_data(conn, daily_data)
+        activities = fetch_garmin_daily()
+        if activities:
+            for activity in activities:
+                database.store_workout_data(conn, activity)
             database.update_last_successful_fetch_date(conn, datetime.now().date())
         else:
             logger.error("Scraping failed. No workout data stored.")
