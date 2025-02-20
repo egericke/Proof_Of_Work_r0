@@ -21,15 +21,9 @@ GARMIN_LOGIN_URL = "https://sso.garmin.com/sso/signin"
 GARMIN_DASHBOARD_URL = "https://connect.garmin.com/modern/daily-summary"
 
 def login_to_garmin(session: requests.Session) -> bool:
-    """
-    Log into Garmin Connect and return True if successful.
-    """
     try:
-        # Initial GET to fetch CSRF token or session cookies
         login_page = session.get(GARMIN_LOGIN_URL)
         soup = BeautifulSoup(login_page.text, "html.parser")
-        
-        # Extract any hidden form fields (e.g., CSRF token)
         form_data = {
             "username": config.GARMIN_USERNAME,
             "password": config.GARMIN_PASSWORD,
@@ -37,9 +31,10 @@ def login_to_garmin(session: requests.Session) -> bool:
         }
         for input_tag in soup.find_all("input", type="hidden"):
             form_data[input_tag.get("name")] = input_tag.get("value")
-
-        # POST login credentials
         response = session.post(GARMIN_LOGIN_URL, data=form_data)
+        logger.debug(f"Login response URL: {response.url}")
+        logger.debug(f"Login response code: {response.status_code}")
+        logger.debug(f"Login response snippet: {response.text[:500]}")  # First 500 chars
         if "modern" in response.url or response.status_code == 200:
             logger.info("Login successful.")
             return True
