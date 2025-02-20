@@ -17,9 +17,16 @@ const path = require('path');
     await page.goto('https://sso.garmin.com/sso/signin', { waitUntil: 'networkidle0' });
 
     console.log("Entering credentials...");
-    await page.type('#username', process.env.GARMIN_USERNAME || '');
-    await page.type('#password', process.env.GARMIN_PASSWORD || '');
-    await page.click('input[type="submit"]');
+    // Use the correct selector based on the provided HTML
+    const usernameSelector = '#email'; // Updated from #username to id="email"
+    const passwordSelector = '#password'; // Assume password uses id="password"; adjust if needed
+    const submitSelector = 'input[type="submit"]'; // May need adjustment
+
+    // Wait for and type credentials
+    await page.waitForSelector(usernameSelector, { timeout: 5000 });
+    await page.type(usernameSelector, process.env.GARMIN_USERNAME || '');
+    await page.type(passwordSelector, process.env.GARMIN_PASSWORD || '');
+    await page.click(submitSelector);
 
     console.log("Waiting for navigation after login...");
     await page.waitForNavigation({ waitUntil: 'networkidle0', timeout: 30000 });
@@ -91,11 +98,11 @@ const path = require('path');
         steps: activity['Steps'] ? parseInt(activity['Steps'], 10) : null,
         total_reps: activity['Total Reps'] ? parseInt(activity['Total Reps'], 10) : null,
         total_sets: activity['Total Sets'] ? parseInt(activity['Total Sets'], 10) : null,
-        min_temp: activity['Min Temp'] ? parseFloat(activity['Min Temp'].replace('°F', '')) : null, // Convert °F to °C if needed
+        min_temp: activity['Min Temp'] ? parseFloat(activity['Min Temp'].replace('°F', '')) : null, // Convert °F to °C if needed: (°F - 32) * 5/9
         decompression: activity['Decompression'] || null,
         best_lap_time: activity['Best Lap Time'] || null,
         number_of_laps: activity['Number of Laps'] ? parseInt(activity['Number of Laps'], 10) : null,
-        max_temp: activity['Max Temp'] ? parseFloat(activity['Max Temp'].replace('°F', '')) : null,
+        max_temp: activity['Max Temp'] ? parseFloat(activity['Max Temp'].replace('°F', '')) : null, // Convert °F to °C if needed
         moving_time: activity['Moving Time'] || null,
         elapsed_time: activity['Elapsed Time'] || null,
         min_elevation: activity['Min Elevation'] ? parseFloat(activity['Min Elevation'].replace(' ft', '')) * 0.3048 : null, // Convert feet to meters
@@ -103,7 +110,9 @@ const path = require('path');
       };
     });
 
-    console.log("Normalized data:", JSON.stringify(normalizedData));
+    // Save data for screenshot_chart.js
+    fs.writeFileSync('garmin_data.json', JSON.stringify(normalizedData, null, 2));
+    console.log("Normalized data saved to garmin_data.json:", JSON.stringify(normalizedData));
     process.stdout.write(JSON.stringify(normalizedData)); // Output for main.py
     await browser.close();
   } catch (err) {
