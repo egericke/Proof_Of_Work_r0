@@ -42,11 +42,15 @@ const path = require('path');
     if (!exportButton) throw new Error("Export CSV button not found.");
     await exportButton.click();
 
-    // Wait for download to complete (Puppeteer doesn’t directly handle downloads; use a workaround)
+    // Set download behavior and wait for download
+    await page._client.send('Page.setDownloadBehavior', {
+      behavior: 'allow',
+      downloadPath: '/tmp',
+    });
     await page.waitForTimeout(5000); // Adjust delay as needed
 
-    // Assume the CSV is downloaded to a default location (e.g., /tmp in GitHub Actions)
-    const csvPath = '/tmp/activities.csv'; // Adjust based on GitHub Actions download location
+    // Assume the CSV is downloaded to /tmp/activities.csv
+    const csvPath = '/tmp/activities.csv';
     if (!fs.existsSync(csvPath)) {
       console.error("CSV file not found. Check export process.");
       await page.screenshot({ path: 'export_error.png' });
@@ -61,8 +65,46 @@ const path = require('path');
       complete: (result) => result.data,
     });
 
-    console.log("CSV parsed:", JSON.stringify(parsedData));
-    process.stdout.write(JSON.stringify(parsedData)); // Output for main.py
+    // Clean and normalize data (e.g., handle empty strings, convert units)
+    const normalizedData = parsedData.map(activity => {
+      return {
+        activity_type: activity['Activity Type'] || null,
+        date: activity['Date'] || null,
+        favorite: activity['Favorite'] === 'TRUE',
+        title: activity['Title'] || null,
+        distance: activity['Distance'] ? parseFloat(activity['Distance'].replace(' mi', '')) * 1609.34 : null, // Convert miles to meters
+        calories: activity['Calories'] ? parseInt(activity['Calories'], 10) : null,
+        time: activity['Time'] || null, // Store as string, convert later if needed
+        avg_hr: activity['Avg HR'] ? parseInt(activity['Avg HR'], 10) : null,
+        max_hr: activity['Max HR'] ? parseInt(activity['Max HR'], 10) : null,
+        avg_bike_cadence: activity['Avg Bike Cadence'] ? parseInt(activity['Avg Bike Cadence'], 10) : null,
+        max_bike_cadence: activity['Max Bike Cadence'] ? parseInt(activity['Max Bike Cadence'], 10) : null,
+        avg_speed: activity['Avg Speed'] || null, // Store as string (e.g., "X mph"), convert later
+        max_speed: activity['Max Speed'] || null,
+        total_ascent: activity['Total Ascent'] ? parseInt(activity['Total Ascent'], 10) : null,
+        total_descent: activity['Total Descent'] ? parseInt(activity['Total Descent'], 10) : null,
+        avg_stride_length: activity['Avg Stride Length'] ? parseFloat(activity['Avg Stride Length'].replace(' ft', '')) * 0.3048 : null, // Convert feet to meters
+        training_stress_score: activity['Training Stress ScoreÂ®'] ? parseFloat(activity['Training Stress ScoreÂ®']) : null,
+        total_strokes: activity['Total Strokes'] ? parseInt(activity['Total Strokes'], 10) : null,
+        avg_swolf: activity['Avg. Swolf'] ? parseInt(activity['Avg. Swolf'], 10) : null,
+        avg_stroke_rate: activity['Avg Stroke Rate'] ? parseInt(activity['Avg Stroke Rate'], 10) : null,
+        steps: activity['Steps'] ? parseInt(activity['Steps'], 10) : null,
+        total_reps: activity['Total Reps'] ? parseInt(activity['Total Reps'], 10) : null,
+        total_sets: activity['Total Sets'] ? parseInt(activity['Total Sets'], 10) : null,
+        min_temp: activity['Min Temp'] ? parseFloat(activity['Min Temp'].replace('°F', '')) : null, // Convert °F to °C if needed
+        decompression: activity['Decompression'] || null,
+        best_lap_time: activity['Best Lap Time'] || null,
+        number_of_laps: activity['Number of Laps'] ? parseInt(activity['Number of Laps'], 10) : null,
+        max_temp: activity['Max Temp'] ? parseFloat(activity['Max Temp'].replace('°F', '')) : null,
+        moving_time: activity['Moving Time'] || null,
+        elapsed_time: activity['Elapsed Time'] || null,
+        min_elevation: activity['Min Elevation'] ? parseFloat(activity['Min Elevation'].replace(' ft', '')) * 0.3048 : null, // Convert feet to meters
+        max_elevation: activity['Max Elevation'] ? parseFloat(activity['Max Elevation'].replace(' ft', '')) * 0.3048 : null, // Convert feet to meters
+      };
+    });
+
+    console.log("Normalized data:", JSON.stringify(normalizedData));
+    process.stdout.write(JSON.stringify(normalizedData)); // Output for main.py
     await browser.close();
   } catch (err) {
     console.error("Error:", err.message);
