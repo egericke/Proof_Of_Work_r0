@@ -16,16 +16,54 @@ const path = require('path');
     console.log("Navigating to Garmin login...");
     await page.goto('https://sso.garmin.com/sso/signin', { waitUntil: 'networkidle0' });
 
+    // Take a screenshot before login for debugging
+    await page.screenshot({ path: 'login_before.png' });
+
     console.log("Entering credentials...");
-    // Use the correct selector based on the provided HTML
-    const usernameSelector = '#email'; // Updated from #username to id="email"
+    // Primary selector: id="email"
+    const usernameSelector = '#email';
     const passwordSelector = '#password'; // Assume password uses id="password"; adjust if needed
     const submitSelector = 'input[type="submit"]'; // May need adjustment
 
-    // Wait for and type credentials
-    await page.waitForSelector(usernameSelector, { timeout: 5000 });
-    await page.type(usernameSelector, process.env.GARMIN_USERNAME || '');
-    await page.type(passwordSelector, process.env.GARMIN_PASSWORD || '');
+    // Try to find and fill username field with increased timeout
+    try {
+      await page.waitForSelector(usernameSelector, { timeout: 10000 }); // Increased to 10 seconds
+      await page.type(usernameSelector, process.env.GARMIN_USERNAME || '');
+    } catch (err) {
+      console.error("Primary username selector (#email) failed. Trying fallback...");
+      // Fallback: Use class or XPath from your HTML
+      const usernameClass = '.signin__form__input'; // Based on class="signin__form__input"
+      try {
+        await page.waitForSelector(usernameClass, { timeout: 5000 });
+        await page.type(usernameClass, process.env.GARMIN_USERNAME || '');
+      } catch (err) {
+        console.error("Class selector failed. Trying XPath...");
+        const usernameXPath = '/html/body/div[1]/main/div[2]/div/div/div/div/form/section[1]/fieldset[1]/div/g-input/div/input';
+        const usernameElement = await page.$x(usernameXPath);
+        if (usernameElement.length > 0) {
+          await usernameElement[0].type(process.env.GARMIN_USERNAME || '');
+        } else {
+          throw new Error("Username field not found with any selector.");
+        }
+      }
+    }
+
+    // Password field (similar fallback if needed)
+    try {
+      await page.waitForSelector(passwordSelector, { timeout: 10000 });
+      await page.type(passwordSelector, process.env.GARMIN_PASSWORD || '');
+    } catch (err) {
+      console.error("Password selector (#password) failed. Trying fallback...");
+      // Adjust password selector/class/XPath as needed
+      const passwordClass = '.signin__form__input[type="password"]'; // Example; inspect for exact class
+      try {
+        await page.waitForSelector(passwordClass, { timeout: 5000 });
+        await page.type(passwordClass, process.env.GARMIN_PASSWORD || '');
+      } catch (err) {
+        throw new Error("Password field not found with any selector.");
+      }
+    }
+
     await page.click(submitSelector);
 
     console.log("Waiting for navigation after login...");
@@ -37,6 +75,9 @@ const path = require('path');
       await page.screenshot({ path: 'login_error.png' });
       process.exit(1);
     }
+
+    // Take a screenshot after login for debugging
+    await page.screenshot({ path: 'login_after.png' });
 
     console.log("Navigating to Activities page...");
     await page.goto('https://connect.garmin.com/modern/activities', {
@@ -98,11 +139,11 @@ const path = require('path');
         steps: activity['Steps'] ? parseInt(activity['Steps'], 10) : null,
         total_reps: activity['Total Reps'] ? parseInt(activity['Total Reps'], 10) : null,
         total_sets: activity['Total Sets'] ? parseInt(activity['Total Sets'], 10) : null,
-        min_temp: activity['Min Temp'] ? parseFloat(activity['Min Temp'].replace('°F', '')) : null, // Convert °F to °C if needed: (°F - 32) * 5/9
+        min_temp: activity['Min Temp'] ? parseFloat(activity['Min Temp'].replace('°F', '')) * 5/9 + 32 : null, // Convert °F to °C: (°F - 32) * 5/9
         decompression: activity['Decompression'] || null,
         best_lap_time: activity['Best Lap Time'] || null,
         number_of_laps: activity['Number of Laps'] ? parseInt(activity['Number of Laps'], 10) : null,
-        max_temp: activity['Max Temp'] ? parseFloat(activity['Max Temp'].replace('°F', '')) : null, // Convert °F to °C if needed
+        max_temp: activity['Max Temp'] ? parseFloat(activity['Max Temp'].replace('°F', '')) * 5/9 + 32 : null, // Convert °F to °C
         moving_time: activity['Moving Time'] || null,
         elapsed_time: activity['Elapsed Time'] || null,
         min_elevation: activity['Min Elevation'] ? parseFloat(activity['Min Elevation'].replace(' ft', '')) * 0.3048 : null, // Convert feet to meters
@@ -111,7 +152,7 @@ const path = require('path');
     });
 
     // Save data for screenshot_chart.js
-    fs.writeFileSync('garmin_data.json', JSON.stringify(normalizedData, null, 2));
+    fs.writeFileSync('scripts/garmin_data.json', JSON.stringify(normalizedData, null, 2));
     console.log("Normalized data saved to garmin_data.json:", JSON.stringify(normalizedData));
     process.stdout.write(JSON.stringify(normalizedData)); // Output for main.py
     await browser.close();
