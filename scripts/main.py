@@ -14,7 +14,7 @@ from scripts.toggl_integration import fetch_and_store_toggl_data
 logger = logging.getLogger(__name__)
 
 def main() -> None:
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.DEBUG)
 
     conn = database.get_db_connection()
 
