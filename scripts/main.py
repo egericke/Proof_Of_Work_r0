@@ -11,23 +11,17 @@ from scripts.toggl_integration import fetch_and_store_toggl_data
 logger = logging.getLogger(__name__)
 
 def fetch_garmin_daily() -> dict:
-    """Fetch Garmin data using Puppeteer script."""
-    try:
-        result = subprocess.run(
-            ['node', 'scripts/garmin_scrape.js'],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        data = json.loads(result.stdout)
-        logger.info("Garmin data fetched successfully.")
-        return data
-    except subprocess.CalledProcessError as e:
-        logger.error("Garmin scrape failed: %s", e.stderr)
-        return None
-    except json.JSONDecodeError as e:
-        logger.error("Failed to parse Garmin data: %s", e)
-        return None
+    result = subprocess.run(
+        ['node', 'scripts/garmin_scrape.js'],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    data = json.loads(result.stdout)
+    with open('scripts/garmin_data.json', 'w') as f:
+        json.dump(data, f)
+    logger.info("Garmin data fetched and saved.")
+    return data
 
 def main() -> None:
     logging.basicConfig(level=logging.INFO)
