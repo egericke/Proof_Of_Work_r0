@@ -11,10 +11,7 @@ def post_twitter(image_path, message):
     if not os.path.exists(image_path):
         logger.warning(f"Skipping Twitter post: {image_path} not found.")
         return
-    auth = OAuthHandler(
-        os.getenv("TWITTER_API_KEY"),
-        os.getenv("TWITTER_API_SECRET")
-    )
+    auth = OAuthHandler(os.getenv("TWITTER_API_KEY"), os.getenv("TWITTER_API_SECRET"))
     auth.set_access_token(
         os.getenv("TWITTER_ACCESS_TOKEN"),
         os.getenv("TWITTER_ACCESS_SECRET")
@@ -40,11 +37,17 @@ def post_instagram(image_path, message):
 
 def main():
     import argparse
-    parser = argparse.ArgumentParser(description="Post workout data to social media.")
+    parser = argparse.ArgumentParser(
+        description="Post workout data to social media."
+    )
     parser.add_argument("image_path", help="Path to the screenshot image")
     parser.add_argument("message", help="Message to post")
     parser.add_argument("--twitter", action="store_true", help="Post to Twitter")
-    parser.add_argument("--instagram", action="store_true", help="Post to Instagram")
+    parser.add_argument(
+        "--instagram",
+        action="store_true",
+        help="Post to Instagram"
+    )
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO)
