@@ -9,6 +9,7 @@ from scripts.database import get_last_successful_fetch_date
 
 logger = logging.getLogger(__name__)
 
+
 def fetch_garmin_daily(conn: connection) -> List[dict]:
     """
     Fetch Garmin activities since the last successful fetch or 7 days ago.
