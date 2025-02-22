@@ -7,10 +7,8 @@ Uses psycopg2 for direct Postgres (Supabase) access.
 import logging
 import datetime
 from typing import Optional
-
 import psycopg2
 from psycopg2.extensions import connection
-
 import scripts.config as config
 
 logger = logging.getLogger(__name__)
@@ -52,12 +50,13 @@ def update_last_successful_fetch_date(conn: connection, date_val: datetime.date)
             "INSERT INTO fetch_metadata (last_fetch_date) VALUES (%s)",
             (date_val,)
         )
+    conn.commit()
     logger.info("Updated last_fetch_date to %s", date_val)
 
 def store_workout_data(conn: connection, activity: dict) -> None:
     """
     Upsert activity data from Garmin CSV in the workout_stats table.
-    activity keys match CSV headers (e.g., activity_type, date, distance, etc.).
+    Activity keys match CSV headers (e.g., activity_type, date, distance, etc.).
     """
     with conn.cursor() as cur:
         cur.execute("""
