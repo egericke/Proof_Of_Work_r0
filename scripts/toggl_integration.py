@@ -48,7 +48,9 @@ def fetch_toggl_entries(since_days: int = 7) -> List[dict]:
     session = requests.Session()
     session.auth = (toggl_api_key, "api_token")
 
-    since_date = (datetime.utcnow() - timedelta(days=since_days)).strftime("%Y-%m-%dT00:00:00Z")
+    since_date = (
+        datetime.utcnow() - timedelta(days=since_days)
+    ).strftime("%Y-%m-%dT00:00:00Z")
     url = f"https://api.track.toggl.com/api/v8/time_entries?start_date={since_date}"
     resp = session.get(url)
     if resp.status_code != 200:
