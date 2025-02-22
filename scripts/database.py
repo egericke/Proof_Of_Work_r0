@@ -120,4 +120,25 @@ def store_workout_data(conn: connection, activity: dict) -> None:
             activity['total_ascent'],
             activity['total_descent'],
             activity['avg_stride_length'],
-            activity['training_stres
+            activity['training_stress_score'],
+            activity['total_strokes'],
+            activity['avg_swolf'],
+            activity['avg_stroke_rate'],
+            activity['steps'],
+            activity['total_reps'],
+            activity['total_sets'],
+            activity['min_temp'],
+            activity['decompression'],
+            activity['best_lap_time'],
+            activity['number_of_laps'],
+            activity['max_temp'],
+            activity['moving_time'],
+            activity['elapsed_time'],
+            activity['min_elevation'],
+            activity['max_elevation']
+        ))
+    logger.info(
+        "Stored workout_stats for activity %s on %s",
+        activity['activity_type'],
+        activity['date']
+    )
