@@ -6,6 +6,7 @@ from instagram_graph_api import InstagramGraphAPI  # Assuming this library
 
 logger = logging.getLogger(__name__)
 
+
 def post_twitter(image_path, message):
     if not os.path.exists(image_path):
         logger.warning(f"Skipping Twitter post: {image_path} not found.")
@@ -23,6 +24,7 @@ def post_twitter(image_path, message):
     api.update_status(status=message, media_ids=[media.media_id])
     logger.info("Posted to Twitter successfully.")
 
+
 def post_instagram(image_path, message):
     if not os.path.exists(image_path):
         logger.warning(f"Skipping Instagram post: {image_path} not found.")
@@ -34,6 +36,7 @@ def post_instagram(image_path, message):
     with open(image_path, 'rb') as f:
         api.publish_photo(f, caption=message)
     logger.info("Posted to Instagram successfully.")
+
 
 def main():
     import argparse
