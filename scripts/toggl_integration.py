@@ -1,6 +1,7 @@
 # scripts/toggl_integration.py
 """
-Toggl integration: fetch time entries, map them to "Naval buckets," store in 'toggl_time'.
+Toggl integration: fetch time entries, map them to "Naval buckets," store in
+'toggl_time'.
 Requires: pip install requests
 """
 
@@ -23,7 +24,6 @@ NAVAL_BUCKETS = {
     "Leisure/Rest": ["leisure", "games", "entertainment", "rest"],
 }
 
-
 def bucket_for_project_or_tags(project_name: str, tags: List[str]) -> str:
     """
     Return the "Naval bucket" name based on a project's name or its tags.
@@ -33,7 +33,6 @@ def bucket_for_project_or_tags(project_name: str, tags: List[str]) -> str:
         if any(kw in combined for kw in keywords):
             return bucket
     return "Other"
-
 
 def fetch_toggl_entries(since_days: int = 7) -> List[dict]:
     """
@@ -51,7 +50,10 @@ def fetch_toggl_entries(since_days: int = 7) -> List[dict]:
     since_date = (
         datetime.utcnow() - timedelta(days=since_days)
     ).strftime("%Y-%m-%dT00:00:00Z")
-    url = f"https://api.track.toggl.com/api/v8/time_entries?start_date={since_date}"
+    url = (
+        f"https://api.track.toggl.com/api/v8/time_entries"
+        f"?start_date={since_date}"
+    )
     resp = session.get(url)
     if resp.status_code != 200:
         logger.error("Toggl fetch failed: %s", resp.text)
@@ -76,7 +78,6 @@ def fetch_toggl_entries(since_days: int = 7) -> List[dict]:
         })
     return entries
 
-
 def aggregate_by_bucket_daily(entries: List[dict]) -> Dict[str, Dict[str, int]]:
     """
     Convert a flat list of time entries to a dict[date][bucket] = total_minutes.
@@ -100,7 +101,6 @@ def aggregate_by_bucket_daily(entries: List[dict]) -> Dict[str, Dict[str, int]]:
 
     return daily_buckets
 
-
 def store_toggl_data(conn: connection, daily_buckets: Dict[str, Dict[str, int]]) -> None:
     """
     Insert or update toggl_time records in the database.
@@ -114,7 +114,6 @@ def store_toggl_data(conn: connection, daily_buckets: Dict[str, Dict[str, int]])
                     ON CONFLICT (entry_date, bucket) DO UPDATE
                     SET minutes = toggl_time.minutes + EXCLUDED.minutes
                 """, (date_str, bucket, minutes))
-
 
 def fetch_and_store_toggl_data(conn: connection, since_days: int = 7) -> None:
     """
