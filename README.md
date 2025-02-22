@@ -12,6 +12,7 @@ By making my fitness, time management, and habit data public, I aim to stay acco
 
 ## Directory Structure
 
+
 ---
 
 my-daily-proof/
@@ -41,6 +42,75 @@ my-daily-proof/
 
 
 ---
+
+## Project Flow Diagram
+
+```mermaid
+graph TD
+    A[GitHub Actions] -->|Triggers| B[main.py]
+    B -->|Fetches Data| C[fetcher.py]
+    C -->|Garmin API| D[Garmin Data]
+    C -->|Strava API| E[Strava Data]
+    B -->|Stores Data| F[database.py]
+    F -->|Supabase| G[workout_stats]
+    F -->|Supabase| H[fetch_metadata]
+    B -->|Fetches Toggl Data| I[toggl_integration.py]
+    I -->|Toggl API| J[Toggl Data]
+    I -->|Stores in| K[toggl_time]
+    B -->|Optional| L[post_to_social.py]
+    L -->|Twitter/Instagram| M[Social Media]
+    N[Google Forms] -->|Logs Habits| O[Google Sheet]
+    O -->|Apps Script| P[habit_tracking]
+    Q[Next.js Dashboard] -->|Queries| R[Supabase]
+```
+---
+Python Scripts and Functions
+config.py
+Purpose: Loads environment variables from a .env file for local use or from GitHub Actions secrets in CI.
+Functions:
+No functions; defines variables like GARMIN_USERNAME, SUPABASE_DB_HOST, etc.
+database.py
+Purpose: Manages database connections and operations for Supabase.
+Functions:
+get_db_connection(): Establishes a connection to the Supabase database.
+get_last_successful_fetch_date(conn): Retrieves the most recent successful fetch date.
+update_last_successful_fetch_date(conn, date_val): Updates the fetch log with the latest fetch date.
+store_workout_data(conn, activity): Inserts or updates workout data in the workout_stats table.
+fetcher.py
+Purpose: Retrieves fitness data from Garmin, with Strava as a fallback.
+Functions:
+fetch_garmin_daily(conn): Fetches Garmin activities since the last successful fetch or 7 days ago, filtering out duplicates.
+strava_fallback.py
+Purpose: Fetches data from Strava if Garmin data retrieval fails.
+Functions:
+strava_fetch_daily(): Retrieves the latest Strava activity as a fallback.
+vo2max.py
+Purpose: Handles VO2 max data storage and retrieval.
+Functions:
+create_vo2max_table_query(): Generates SQL to create the vo2max_tests table.
+insert_vo2max(conn, test_date, vo2max_value, notes): Adds or updates VO2 max records.
+get_latest_vo2max(conn): Fetches the most recent VO2 max value.
+toggl_integration.py
+Purpose: Integrates Toggl time-tracking data, mapping it to "Naval buckets" (e.g., Health/Fitness, Deep Work).
+Functions:
+bucket_for_project_or_tags(project_name, tags): Maps projects or tags to a Naval bucket.
+fetch_toggl_entries(since_days=7): Retrieves Toggl entries from the last since_days.
+aggregate_by_bucket_daily(entries): Aggregates entries by date and bucket.
+store_toggl_data(conn, daily_buckets): Stores aggregated data in the database.
+fetch_and_store_toggl_data(conn, since_days=7): Manages the full Toggl fetch-and-store process.
+main.py
+Purpose: Orchestrates data fetching, storage, and optional social media posting.
+Functions:
+main(): Runs the entire process: fetching Garmin data, storing it, fetching Toggl data, and updating the fetch log.
+post_to_social.py
+Purpose: Posts updates to Twitter and Instagram.
+Functions:
+post_twitter(image_path, message): Posts an image and message to Twitter.
+post_instagram(image_path, message): Posts an image and message to Instagram.
+main(): CLI entry point for social media posting.
+
+
+
 
 ## Setup & Installation
 
