@@ -9,6 +9,7 @@ from psycopg2.extensions import connection
 
 logger = logging.getLogger(__name__)
 
+
 def create_vo2max_table_query() -> str:
     """
     Returns the SQL statement to create the vo2max_tests table if not exists.
@@ -20,6 +21,7 @@ def create_vo2max_table_query() -> str:
         notes TEXT
     );
     """
+
 
 def insert_vo2max(
     conn: connection,
@@ -41,6 +43,7 @@ def insert_vo2max(
             """,
             (test_date, vo2max_value, notes)
         )
+
 
 def get_latest_vo2max(conn: connection) -> float:
     """
