@@ -21,7 +21,10 @@ def post_twitter(image_path, message):
     )
     api = API(auth, wait_on_rate_limit=True)
     media = api.media_upload(image_path)
-    api.update_status(status=message, media_ids=[media.media_id])
+    api.update_status(
+        status=message,
+        media_ids=[media.media_id]
+    )
     logger.info("Posted to Twitter successfully.")
 
 
@@ -59,6 +62,7 @@ def main():
         post_twitter(args.image_path, args.message)
     if args.instagram:
         post_instagram(args.image_path, args.message)
+
 
 if __name__ == "__main__":
     main()
