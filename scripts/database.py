@@ -13,6 +13,7 @@ import scripts.config as config
 
 logger = logging.getLogger(__name__)
 
+
 def get_db_connection() -> connection:
     """
     Create a new database connection using credentials from config.
@@ -26,6 +27,7 @@ def get_db_connection() -> connection:
     )
     conn.autocommit = True
     return conn
+
 
 def get_last_successful_fetch_date(conn: connection) -> Optional[datetime.date]:
     """
@@ -41,6 +43,7 @@ def get_last_successful_fetch_date(conn: connection) -> Optional[datetime.date]:
         row = cur.fetchone()
     return row[0] if row else None
 
+
 def update_last_successful_fetch_date(conn: connection, date_val: datetime.date) -> None:
     """
     Insert a new row into fetch_metadata to mark the last successful fetch date.
@@ -53,6 +56,7 @@ def update_last_successful_fetch_date(conn: connection, date_val: datetime.date)
     conn.commit()
     logger.info("Updated last_fetch_date to %s", date_val)
 
+
 def store_workout_data(conn: connection, activity: dict) -> None:
     """
     Upsert activity data from Garmin CSV in the workout_stats table.
@@ -61,16 +65,19 @@ def store_workout_data(conn: connection, activity: dict) -> None:
     with conn.cursor() as cur:
         cur.execute("""
             INSERT INTO workout_stats (
-                activity_type, date, favorite, title, distance, calories, time,
-                avg_hr, max_hr, avg_bike_cadence, max_bike_cadence, avg_speed,
-                max_speed, total_ascent, total_descent, avg_stride_length,
-                training_stress_score, total_strokes, avg_swolf, avg_stroke_rate,
-                steps, total_reps, total_sets, min_temp, decompression,
+                activity_type, date, favorite, title, distance,
+                calories, time, avg_hr, max_hr, avg_bike_cadence,
+                max_bike_cadence, avg_speed, max_speed, total_ascent,
+                total_descent, avg_stride_length, training_stress_score,
+                total_strokes, avg_swolf, avg_stroke_rate, steps,
+                total_reps, total_sets, min_temp, decompression,
                 best_lap_time, number_of_laps, max_temp, moving_time,
                 elapsed_time, min_elevation, max_elevation
             ) VALUES (
-                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s
             )
             ON CONFLICT (date, activity_type) DO UPDATE SET
                 favorite = EXCLUDED.favorite,
@@ -104,37 +111,18 @@ def store_workout_data(conn: connection, activity: dict) -> None:
                 min_elevation = EXCLUDED.min_elevation,
                 max_elevation = EXCLUDED.max_elevation
         """, (
-            activity['activity_type'],
-            activity['date'],
-            activity['favorite'],
-            activity['title'],
-            activity['distance'],
-            activity['calories'],
-            activity['time'],
-            activity['avg_hr'],
-            activity['max_hr'],
-            activity['avg_bike_cadence'],
-            activity['max_bike_cadence'],
-            activity['avg_speed'],
-            activity['max_speed'],
-            activity['total_ascent'],
-            activity['total_descent'],
-            activity['avg_stride_length'],
-            activity['training_stress_score'],
-            activity['total_strokes'],
-            activity['avg_swolf'],
-            activity['avg_stroke_rate'],
-            activity['steps'],
-            activity['total_reps'],
-            activity['total_sets'],
-            activity['min_temp'],
-            activity['decompression'],
-            activity['best_lap_time'],
-            activity['number_of_laps'],
-            activity['max_temp'],
-            activity['moving_time'],
-            activity['elapsed_time'],
-            activity['min_elevation'],
+            activity['activity_type'], activity['date'], activity['favorite'],
+            activity['title'], activity['distance'], activity['calories'],
+            activity['time'], activity['avg_hr'], activity['max_hr'],
+            activity['avg_bike_cadence'], activity['max_bike_cadence'],
+            activity['avg_speed'], activity['max_speed'], activity['total_ascent'],
+            activity['total_descent'], activity['avg_stride_length'],
+            activity['training_stress_score'], activity['total_strokes'],
+            activity['avg_swolf'], activity['avg_stroke_rate'], activity['steps'],
+            activity['total_reps'], activity['total_sets'], activity['min_temp'],
+            activity['decompression'], activity['best_lap_time'],
+            activity['number_of_laps'], activity['max_temp'], activity['moving_time'],
+            activity['elapsed_time'], activity['min_elevation'],
             activity['max_elevation']
         ))
     logger.info(
