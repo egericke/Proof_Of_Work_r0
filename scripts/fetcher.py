@@ -1,7 +1,6 @@
 # scripts/fetcher.py
 from datetime import datetime, timedelta
 from garminconnect import Garmin
-import os
 import logging
 from typing import List
 from psycopg2.extensions import connection
@@ -9,6 +8,7 @@ import scripts.config as config
 from scripts.database import get_last_successful_fetch_date
 
 logger = logging.getLogger(__name__)
+
 
 def fetch_garmin_daily(conn: connection) -> List[dict]:
     """
@@ -31,7 +31,10 @@ def fetch_garmin_daily(conn: connection) -> List[dict]:
         end_date = datetime.now().date()
 
         logger.info(f"Fetching activities from {start_date} to {end_date}")
-        activities = client.get_activities_by_date(start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d"))
+        activities = client.get_activities_by_date(
+            start_date.strftime("%Y-%m-%d"),
+            end_date.strftime("%Y-%m-%d")
+        )
 
         if not activities:
             logger.info("No new activities found.")
