@@ -1,11 +1,12 @@
 # scripts/main.py
 import logging
 from datetime import datetime
-from scripts.database import get_db_connection, get_last_successful_fetch_date, update_last_successful_fetch_date, store_workout_data
+from scripts.database import get_db_connection, update_last_successful_fetch_date, store_workout_data
 from scripts.fetcher import fetch_garmin_daily
 from scripts.toggl_integration import fetch_and_store_toggl_data
 
 logger = logging.getLogger(__name__)
+
 
 def main():
     logging.basicConfig(level=logging.INFO)
@@ -25,6 +26,7 @@ def main():
     fetch_and_store_toggl_data(conn, since_days=7)
     logger.info("Toggl data fetched and stored")
     conn.close()
+
 
 if __name__ == "__main__":
     main()
