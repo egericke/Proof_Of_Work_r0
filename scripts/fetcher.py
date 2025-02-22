@@ -1,69 +1,51 @@
-"""
-Fetch Garmin fitness data using the garminconnect library.
-"""
-
-import logging
-from datetime import datetime
+# scripts/fetcher.py
+from datetime import datetime, timedelta
 from garminconnect import Garmin
 import os
-from dotenv import load_dotenv
-
-# Load environment variables from .env file
-load_dotenv()
+import logging
+from scripts.database import get_last_successful_fetch_date
 
 logger = logging.getLogger(__name__)
 
-def fetch_garmin_daily() -> list:
-    """Fetch today's activities from Garmin Connect using the API."""
+def fetch_garmin_daily(conn) -> list:
     try:
-        # Get credentials from environment variables
         username = os.getenv("GARMIN_USERNAME")
         password = os.getenv("GARMIN_PASSWORD")
-        
         if not username or not password:
-            logger.error("Garmin credentials not found in environment variables.")
+            logger.error("Garmin credentials not found.")
             return []
 
-        # Initialize Garmin client
         client = Garmin(username, password)
         client.login()
         logger.info("Successfully logged into Garmin Connect.")
 
-        # Get today's date
-        today = datetime.now().strftime("%Y-%m-%d")
+        # Get last fetch date or default to 7 days ago
+        last_fetch = get_last_successful_fetch_date(conn)
+        start_date = last_fetch if last_fetch else (datetime.now() - timedelta(days=7)).date()
+        end_date = datetime.now().date()
 
-        # Fetch activities for today
-        activities = client.get_activities_by_date(today, today)
+        logger.info(f"Fetching activities from {start_date} to {end_date}")
+        activities = client.get_activities_by_date(start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d"))
 
         if not activities:
-            logger.info("No activities found for today.")
+            logger.info("No new activities found.")
             return []
 
-        # Normalize data for your database schema
-        normalized_activities = []
-        for activity in activities:
-            normalized_activities.append({
-                "activity_type": activity.get("activityType", {}).get("typeKey", "unknown"),
-                "date": activity.get("startTimeLocal", today),
-                "distance": activity.get("distance", 0),
-                "calories": activity.get("calories", 0),
-                # Add other fields as needed
-            })
+        logger.info(f"Retrieved {len(activities)} activities.")
 
-        logger.info(f"Retrieved {len(normalized_activities)} Garmin activities.")
-        return normalized_activities
+        # Filter out existing activities
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT date FROM workout_data")
+            existing_dates = {row[0] for row in cursor.fetchall()}
+        
+        new_activities = [
+            activity for activity in activities
+            if datetime.strptime(activity['startTimeLocal'], "%Y-%m-%d %H:%M:%S").date() not in existing_dates
+        ]
+
+        logger.info(f"Found {len(new_activities)} new activities to store.")
+        return new_activities
 
     except Exception as e:
-        logger.error("Failed to fetch Garmin data: %s", str(e))
+        logger.error(f"Failed to fetch Garmin data: {str(e)}")
         return []
-
-def main():
-    logging.basicConfig(level=logging.INFO)
-    activities = fetch_garmin_daily()
-    if activities:
-        logger.info("Activities fetched: %s", activities)
-    else:
-        logger.error("No activities fetched.")
-
-if __name__ == "__main__":
-    main()
