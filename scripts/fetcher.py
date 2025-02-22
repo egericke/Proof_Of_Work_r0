@@ -27,10 +27,14 @@ def fetch_garmin_daily(conn: connection) -> List[dict]:
         logger.info("Successfully logged into Garmin Connect.")
 
         last_fetch = get_last_successful_fetch_date(conn)
-        start_date = last_fetch if last_fetch else (datetime.now() - timedelta(days=7)).date()
+        start_date = (
+            last_fetch
+            if last_fetch
+            else (datetime.now() - timedelta(days=7)).date()
+        )
         end_date = datetime.now().date()
 
-        logger.info(f"Fetching activities from {start_date} to {end_date}")
+        logger.info("Fetching activities from %s to %s", start_date, end_date)
         activities = client.get_activities_by_date(
             start_date.strftime("%Y-%m-%d"),
             end_date.strftime("%Y-%m-%d")
@@ -48,7 +52,8 @@ def fetch_garmin_daily(conn: connection) -> List[dict]:
 
         new_activities = [
             activity for activity in activities
-            if datetime.strptime(activity['startTimeLocal'], "%Y-%m-%d %H:%M:%S").date() not in existing_dates
+            if datetime.strptime(activity['startTimeLocal'], "%Y-%m-%d %H:%M:%S").date()
+            not in existing_dates
         ]
 
         logger.info(f"Found {len(new_activities)} new activities to store.")
