@@ -1,44 +1,42 @@
+# scripts/main.py
 import logging
-from datetime import datetime
-import scripts.database as database
 from scripts.fetcher import fetch_garmin_daily
-from scripts.toggl_integration import fetch_and_store_toggl_data
-from scripts.vo2max import create_vo2max_table_query, get_latest_vo2max
+from scripts.database import get_db_connection, update_last_successful_fetch_date, get_last_successful_fetch_date
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
+def store_workout_data(conn, activity):
+    with conn.cursor() as cursor:
+        cursor.execute(
+            """
+            INSERT INTO workout_data (date, activity_type, duration, distance, calories)
+            VALUES (%s, %s, %s, %s, %s)
+            """,
+            (
+                datetime.strptime(activity['startTimeLocal'], "%Y-%m-%d %H:%M:%S").date(),
+                activity['activityType']['typeKey'],
+                activity['duration'],
+                activity['distance'],
+                activity['calories']
+            )
+        )
+        conn.commit()
+
 def main():
     logging.basicConfig(level=logging.INFO)
+    conn = get_db_connection()
 
-    conn = database.get_db_connection()
-
-    # Ensure VO2 max table exists
-    with conn.cursor() as cur:
-        cur.execute(create_vo2max_table_query())
-
-    # Fetch Garmin activities
-    today_str = datetime.now().strftime("%Y-%m-%d")
-    last_fetch = database.get_last_successful_fetch_date(conn)
-    if str(last_fetch) == today_str:
-        logger.info("Already fetched data for today.")
+    activities = fetch_garmin_daily(conn)
+    if activities:
+        for activity in activities:
+            store_workout_data(conn, activity)
+        update_last_successful_fetch_date(conn, datetime.now().date())
+        logger.info("New workout data stored successfully.")
     else:
-        activities = fetch_garmin_daily()
-        if activities:
-            for activity in activities:
-                database.store_workout_data(conn, activity)
-            database.update_last_successful_fetch_date(conn, datetime.now().date())
-        else:
-            logger.error("Fetching failed. No workout data stored.")
-
-    # Fetch Toggl data (if API key is provided)
-    fetch_and_store_toggl_data(conn, since_days=7)
-
-    # Get latest VO2 max
-    vo2 = get_latest_vo2max(conn)
-    logger.info("Latest VO2 max: %s", vo2 if vo2 else "None")
+        logger.info("No new workout data to store.")
 
     conn.close()
-    logger.info("Daily run complete.")
 
 if __name__ == "__main__":
     main()
