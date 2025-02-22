@@ -65,15 +65,15 @@ def store_workout_data(conn: connection, activity: dict) -> None:
     with conn.cursor() as cur:
         cur.execute("""
             INSERT INTO workout_stats (
-                activity_type, date, favorite, title, distance, calories, time, avg_hr, max_hr,
-                avg_bike_cadence, max_bike_cadence, avg_speed, max_speed, total_ascent,
-                total_descent, avg_stride_length, training_stress_score, total_strokes,
-                avg_swolf, avg_stroke_rate, steps, total_reps, total_sets, min_temp,
-                decompression, best_lap_time, number_of_laps, max_temp, moving_time,
-                elapsed_time, min_elevation, max_elevation
+                activity_type, date, favorite, title, distance, calories, time, avg_hr,
+                max_hr, avg_bike_cadence, max_bike_cadence, avg_speed, max_speed,
+                total_ascent, total_descent, avg_stride_length, training_stress_score,
+                total_strokes, avg_swolf, avg_stroke_rate, steps, total_reps,
+                total_sets, min_temp, decompression, best_lap_time, number_of_laps,
+                max_temp, moving_time, elapsed_time, min_elevation, max_elevation
             ) VALUES (
-                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
             )
             ON CONFLICT (date, activity_type) DO UPDATE SET
                 favorite = EXCLUDED.favorite,
@@ -140,4 +140,8 @@ def store_workout_data(conn: connection, activity: dict) -> None:
             activity['min_elevation'],
             activity['max_elevation']
         ))
-    logger.info("Stored workout_stats for activity %s on %s", activity['activity_type'], activity['date'])
+    logger.info(
+        "Stored workout_stats for activity %s on %s",
+        activity['activity_type'],
+        activity['date']
+    )
