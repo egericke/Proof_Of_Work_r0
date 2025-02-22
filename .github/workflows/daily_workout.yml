@@ -21,6 +21,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install --no-cache-dir -r requirements.txt
 
+      - name: Install linting tools
+        run: pip install flake8  # Installs flake8 for linting
+
+      - name: Lint code
+        run: flake8 scripts/  # Runs linting on the scripts/ directory
+
       - name: Create .env file
         run: |
           echo "SUPABASE_DB_HOST=${{ secrets.SUPABASE_DB_HOST }}" >> .env
