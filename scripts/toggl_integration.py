@@ -9,7 +9,6 @@ import requests
 from typing import Dict, List
 from datetime import datetime, timedelta
 from psycopg2.extensions import connection
-
 import scripts.config as config
 
 logger = logging.getLogger(__name__)
