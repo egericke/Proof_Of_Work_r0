@@ -9,7 +9,6 @@ from scripts.database import get_last_successful_fetch_date
 
 logger = logging.getLogger(__name__)
 
-
 def fetch_garmin_daily(conn: connection) -> List[dict]:
     """
     Fetch Garmin activities since the last successful fetch or 7 days ago.
@@ -52,8 +51,9 @@ def fetch_garmin_daily(conn: connection) -> List[dict]:
 
         new_activities = [
             activity for activity in activities
-            if datetime.strptime(activity['startTimeLocal'], "%Y-%m-%d %H:%M:%S").date()
-            not in existing_dates
+            if datetime.strptime(
+                activity['startTimeLocal'], "%Y-%m-%d %H:%M:%S"
+            ).date() not in existing_dates
         ]
 
         logger.info(f"Found {len(new_activities)} new activities to store.")
