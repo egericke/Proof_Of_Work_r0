@@ -19,7 +19,9 @@ def strava_fetch_daily() -> Optional[Dict]:
     Fetch the latest Strava activity as a fallback approach.
     Returns a daily summary-like dict or None if no data or missing credentials.
     """
-    if not config.STRAVA_CLIENT_ID or not config.STRAVA_CLIENT_SECRET or not config.STRAVA_REFRESH_TOKEN:
+    if not (
+        config.STRAVA_CLIENT_ID and config.STRAVA_CLIENT_SECRET and config.STRAVA_REFRESH_TOKEN
+    ):
         logger.error("Strava credentials missing.")
         return None
 
