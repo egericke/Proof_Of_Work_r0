@@ -6,12 +6,14 @@ from instagram_graph_api import InstagramGraphAPI  # Assuming this library
 
 logger = logging.getLogger(__name__)
 
-
 def post_twitter(image_path, message):
     if not os.path.exists(image_path):
         logger.warning(f"Skipping Twitter post: {image_path} not found.")
         return
-    auth = OAuthHandler(os.getenv("TWITTER_API_KEY"), os.getenv("TWITTER_API_SECRET"))
+    auth = OAuthHandler(
+        os.getenv("TWITTER_API_KEY"),
+        os.getenv("TWITTER_API_SECRET")
+    )
     auth.set_access_token(
         os.getenv("TWITTER_ACCESS_TOKEN"),
         os.getenv("TWITTER_ACCESS_SECRET")
@@ -20,7 +22,6 @@ def post_twitter(image_path, message):
     media = api.media_upload(image_path)
     api.update_status(status=message, media_ids=[media.media_id])
     logger.info("Posted to Twitter successfully.")
-
 
 def post_instagram(image_path, message):
     if not os.path.exists(image_path):
@@ -33,7 +34,6 @@ def post_instagram(image_path, message):
     with open(image_path, 'rb') as f:
         api.publish_photo(f, caption=message)
     logger.info("Posted to Instagram successfully.")
-
 
 def main():
     import argparse
@@ -56,7 +56,6 @@ def main():
         post_twitter(args.image_path, args.message)
     if args.instagram:
         post_instagram(args.image_path, args.message)
-
 
 if __name__ == "__main__":
     main()
