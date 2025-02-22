@@ -13,14 +13,15 @@ import scripts.config as config
 
 logger = logging.getLogger(__name__)
 
-
 def strava_fetch_daily() -> Optional[Dict]:
     """
     Fetch the latest Strava activity as a fallback approach.
     Returns a daily summary-like dict or None if no data or missing credentials.
     """
     if not (
-        config.STRAVA_CLIENT_ID and config.STRAVA_CLIENT_SECRET and config.STRAVA_REFRESH_TOKEN
+        config.STRAVA_CLIENT_ID
+        and config.STRAVA_CLIENT_SECRET
+        and config.STRAVA_REFRESH_TOKEN
     ):
         logger.error("Strava credentials missing.")
         return None
