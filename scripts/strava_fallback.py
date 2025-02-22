@@ -13,6 +13,7 @@ import scripts.config as config
 
 logger = logging.getLogger(__name__)
 
+
 def strava_fetch_daily() -> Optional[Dict]:
     """
     Fetch the latest Strava activity as a fallback approach.
