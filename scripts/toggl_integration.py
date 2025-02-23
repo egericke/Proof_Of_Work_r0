@@ -2,10 +2,11 @@ import logging
 from datetime import datetime, timedelta
 import requests
 from typing import List
+import config  # Assuming you have a config file for API keys
 
 logger = logging.getLogger(__name__)
 
-def fetch_toggl_entries(since_days: int = 7) -> list[dict]:
+def fetch_toggl_entries(since_days: int = 7) -> List[dict]:
     """
     Fetch time entries from the Toggl API for the specified number of days.
 
@@ -13,7 +14,7 @@ def fetch_toggl_entries(since_days: int = 7) -> list[dict]:
         since_days (int, optional): Number of days to look back for entries. Defaults to 7.
 
     Returns:
-        list[dict]: List of parsed time entries with date, project name, tags, and duration.
+        List[dict]: List of parsed time entries with date, project name, tags, and duration.
     """
     # Validate API key
     toggl_api_key = config.TOGGL_API_KEY
@@ -97,3 +98,40 @@ def fetch_toggl_entries(since_days: int = 7) -> list[dict]:
 
     logger.info(f"Fetched {len(entries)} valid Toggl entries.")
     return entries
+
+def store_toggl_entries(conn, entries: List[dict]) -> None:
+    """
+    Store the fetched Toggl entries into the database.
+
+    Args:
+        conn: Database connection object.
+        entries (List[dict]): List of Toggl entries to store.
+    """
+    cursor = conn.cursor()
+    for entry in entries:
+        # Example: Insert into a table named 'toggl_entries'
+        # Adjust the SQL query based on your actual database schema
+        cursor.execute(
+            """
+            INSERT INTO toggl_entries (date, project_name, tags, duration_seconds)
+            VALUES (%s, %s, %s, %s)
+            """,
+            (entry["date"], entry["project_name"], entry["tags"], entry["duration_seconds"])
+        )
+    conn.commit()
+    logger.info(f"Stored {len(entries)} Toggl entries in the database.")
+
+def fetch_and_store_toggl_data(conn, since_days: int = 7) -> None:
+    """
+    Fetch Toggl entries for the specified number of days and store them in the database.
+
+    Args:
+        conn: Database connection object.
+        since_days (int, optional): Number of days to look back for entries. Defaults to 7.
+    """
+    entries = fetch_toggl_entries(since_days)
+    if entries:
+        store_toggl_entries(conn, entries)
+        logger.info("Toggl data fetched and stored successfully")
+    else:
+        logger.info("No Toggl entries to store")
