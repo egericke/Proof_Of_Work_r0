@@ -13,6 +13,7 @@ import scripts.config as config
 
 logger = logging.getLogger(__name__)
 
+
 def get_db_connection() -> connection:
     """Create a new database connection using config credentials."""
     conn = psycopg2.connect(
@@ -24,6 +25,7 @@ def get_db_connection() -> connection:
     )
     conn.autocommit = True
     return conn
+
 
 def get_last_successful_fetch_date(
     conn: connection
@@ -39,6 +41,7 @@ def get_last_successful_fetch_date(
         row = cur.fetchone()
     return row[0] if row else None
 
+
 def update_last_successful_fetch_date(
     conn: connection,
     date_val: datetime.date
@@ -52,6 +55,7 @@ def update_last_successful_fetch_date(
         )
     conn.commit()
     logger.info("Updated last_fetch_date to %s", date_val)
+
 
 def store_workout_data(conn: connection, activity: dict) -> None:
     """Upsert activity data from Garmin CSV into workout_stats."""
