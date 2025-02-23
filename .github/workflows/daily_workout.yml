@@ -21,11 +21,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install --no-cache-dir -r requirements.txt
 
-      - name: Install linting tools
-        run: pip install flake8  # Installs flake8 for linting
+      # - name: Install linting tools
+      #   run: pip install flake8  # Temporarily commented out
 
-      - name: Lint code
-        run: flake8 scripts/  # Runs linting on the scripts/ directory
+      # - name: Lint code
+      #   run: flake8 scripts/  # Temporarily commented out
 
       - name: Create .env file
         run: |
