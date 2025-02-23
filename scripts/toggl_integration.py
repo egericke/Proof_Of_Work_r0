@@ -31,7 +31,7 @@ def fetch_toggl_entries(since_days: int = 7) -> list[dict]:
         datetime.utcnow() - timedelta(days=since_days)
     ).strftime("%Y-%m-%dT00:00:00Z")
     url = (
-        "https://api.track.toggl.com/api/v8/time_entries"
+        "https://api.track.toggl.com/api/v9/me/time_entries"
         f"?start_date={since_date}"
     )
 
