@@ -4,7 +4,7 @@ requests==2.31.0
 python-dotenv==1.0.0
 
 # Garmin & Strava
-garminconnect==0.1.46
+garminconnect==0.2.25
 stravalib==0.10.4
 beautifulsoup4==4.12.3  
 
