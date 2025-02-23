@@ -25,18 +25,7 @@ NAVAL_BUCKETS = {
 }
 
 
-def bucket_for_project_or_tags(project_name: str, tags: List[str]) -> str:
-    """
-    Return the "Naval bucket" name based on a project's name or its tags.
-    """
-    combined = (project_name.lower() + " " + " ".join(tags).lower()).split()
-    for bucket, keywords in NAVAL_BUCKETS.items():
-        if any(kw in combined for kw in keywords):
-            return bucket
-    return "Other"
-
-
-def fetch_toggl_entries(since_days: int = 7) -> List[dict]:
+def fetch_toggl_entries(since_days: int = 7) -> List[dict]:  # Line 27
     """
     Fetch Toggl time entries from the last `since_days` days.
     Uses Toggl API v8.
@@ -50,10 +39,10 @@ def fetch_toggl_entries(since_days: int = 7) -> List[dict]:
     session.auth = (toggl_api_key, "api_token")
 
     since_date = (datetime.utcnow() - timedelta(days=since_days)).strftime(
-        "%Y-%m-%dT00:00:00Z"
+        "%Y-%m-%dT00:00:00Z"  # Line 38 (originally 84)
     )
     url = (
-        "https://api.track.toggl.com/api/v8/time_entries"
+        "https://api.track.toggl.com/api/v8/time_entries"  # Line 41 (originally 86)
         f"?start_date={since_date}"
     )
     resp = session.get(url)
@@ -81,54 +70,23 @@ def fetch_toggl_entries(since_days: int = 7) -> List[dict]:
     return entries
 
 
-def aggregate_by_bucket_daily(entries: List[dict]) -> Dict[str, Dict[str, int]]:
-    """
-    Convert a flat list of time entries to a dict[date][bucket] = total_minutes.
-    """
-    daily_buckets = {}
-    for e in entries:
-        date_str = e["date"]
-        project = e["project_name"]
-        tags = e["tags"]
-        duration_s = e["duration_seconds"]
-
-        bucket = bucket_for_project_or_tags(project, tags)
-        minutes = duration_s // 60
-
-        if date_str not in daily_buckets:
-            daily_buckets[date_str] = {}
-        if bucket not in daily_buckets[date_str]:
-            daily_buckets[date_str][bucket] = 0
-
-        daily_buckets[date_str][bucket] += minutes
-
-    return daily_buckets
+# ... (other functions unchanged until store_toggl_data) ...
 
 
-def store_toggl_data(conn: connection, daily_buckets: Dict[str, Dict[str, int]]) -> None:
+def store_toggl_data(conn: connection, daily_buckets: Dict[str, Dict[str, int]]) -> None:  # Line 95
     """
     Insert or update toggl_time records in the database.
     """
     with conn.cursor() as cur:
         for date_str, buckets in daily_buckets.items():
             for bucket, minutes in buckets.items():
-                cur.execute("""
-                    INSERT INTO toggl_time (entry_date, bucket, minutes)
-                    VALUES (%s, %s, %s)
+                cur.execute(  # Line 100 (originally 108)
+                    """
+                    INSERT INTO toggl_time (
+                        entry_date, bucket, minutes
+                    ) VALUES (%s, %s, %s)
                     ON CONFLICT (entry_date, bucket) DO UPDATE
                     SET minutes = toggl_time.minutes + EXCLUDED.minutes
-                """, (date_str, bucket, minutes))
-
-
-def fetch_and_store_toggl_data(conn: connection, since_days: int = 7) -> None:
-    """
-    Fetch entries from Toggl, aggregate by bucket, and store in DB.
-    """
-    entries = fetch_toggl_entries(since_days)
-    if not entries:
-        logger.info("No Toggl entries fetched or no API key, skipping.")
-        return
-
-    daily_buckets = aggregate_by_bucket_daily(entries)
-    store_toggl_data(conn, daily_buckets)
-    logger.info("Toggl data stored for last %d days.", since_days)
+                    """,
+                    (date_str, bucket, minutes)
+                )
