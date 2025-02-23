@@ -21,7 +21,7 @@ def post_twitter(image_path, message):
     )
     api = API(auth, wait_on_rate_limit=True)
     media = api.media_upload(image_path)
-    api.update_status(  # Line 23 (originally 51)
+    api.update_status(
         status=message,
         media_ids=[media.media_id]
     )
