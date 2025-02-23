@@ -29,7 +29,9 @@ def get_db_connection() -> connection:
     return conn
 
 
-def get_last_successful_fetch_date(conn: connection) -> Optional[datetime.date]:
+def get_last_successful_fetch_date(
+    conn: connection
+) -> Optional[datetime.date]:
     """
     Get the most recent date we successfully fetched workout data.
     """
@@ -44,7 +46,10 @@ def get_last_successful_fetch_date(conn: connection) -> Optional[datetime.date]:
     return row[0] if row else None
 
 
-def update_last_successful_fetch_date(conn: connection, date_val: datetime.date) -> None:
+def update_last_successful_fetch_date(
+    conn: connection,
+    date_val: datetime.date
+) -> None:
     """
     Insert a new row into fetch_metadata to mark the last successful fetch date.
     """
