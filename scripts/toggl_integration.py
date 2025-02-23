@@ -1,4 +1,4 @@
-def fetch_toggl_entries(since_days: int = 7) -> List[dict]:
+def fetch_toggl_entries(since_days: int = 7) -> list[dict]:
     toggl_api_key = config.TOGGL_API_KEY
     logger.info(f"Using Toggl API key: {toggl_api_key[:4]}...")  # Verify key
     if not toggl_api_key:
