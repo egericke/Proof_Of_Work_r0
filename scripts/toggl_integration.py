@@ -24,12 +24,14 @@ NAVAL_BUCKETS = {
     "Leisure/Rest": ["leisure", "games", "entertainment", "rest"],
 }
 
+
 def bucket_for_project_or_tags(project_name: str, tags: List[str]) -> str:
     combined = (project_name.lower() + " " + " ".join(tags).lower()).split()
     for bucket, keywords in NAVAL_BUCKETS.items():
         if any(kw in combined for kw in keywords):
             return bucket
     return "Other"
+
 
 def fetch_toggl_entries(since_days: int = 7) -> List[dict]:
     toggl_api_key = config.TOGGL_API_KEY
@@ -64,6 +66,7 @@ def fetch_toggl_entries(since_days: int = 7) -> List[dict]:
         })
     return entries
 
+
 def aggregate_by_bucket_daily(entries: List[dict]) -> Dict[str, Dict[str, int]]:
     daily_buckets = {}
     for e in entries:
@@ -76,6 +79,7 @@ def aggregate_by_bucket_daily(entries: List[dict]) -> Dict[str, Dict[str, int]]:
         daily_buckets.setdefault(date_str, {}).setdefault(bucket, 0)
         daily_buckets[date_str][bucket] += minutes
     return daily_buckets
+
 
 def store_toggl_data(
     conn: connection,
@@ -94,6 +98,7 @@ def store_toggl_data(
                     """,
                     (date_str, bucket, minutes)
                 )
+
 
 def fetch_and_store_toggl_data(
     conn: connection,
