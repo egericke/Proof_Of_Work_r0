@@ -67,5 +67,6 @@ def main():
     if args.instagram:
         post_instagram(args.image_path, args.message)
 
+
 if __name__ == "__main__":
     main()
