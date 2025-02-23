@@ -2,8 +2,9 @@ import logging
 from datetime import datetime, timedelta
 import requests
 from typing import List
-import config  # Assuming you have a config file for API keys
+from . import config  # Relative import from the same package
 
+# Rest of the code remains unchanged
 logger = logging.getLogger(__name__)
 
 def fetch_toggl_entries(since_days: int = 7) -> List[dict]:
