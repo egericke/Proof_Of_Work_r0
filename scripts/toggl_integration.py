@@ -67,7 +67,9 @@ def fetch_toggl_entries(since_days: int = 7) -> List[dict]:
     return entries
 
 
-def aggregate_by_bucket_daily(entries: List[dict]) -> Dict[str, Dict[str, int]]:
+def aggregate_by_bucket_daily(
+    entries: List[dict]
+) -> Dict[str, Dict[str, int]]:
     daily_buckets = {}
     for e in entries:
         date_str = e["date"]
