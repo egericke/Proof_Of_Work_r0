@@ -29,21 +29,17 @@ def fetch_garmin_daily(conn: connection) -> List[dict]:
         client.login()
         logger.info("Successfully logged into Garmin Connect.")
 
-        # Use timezone-aware datetimes in UTC
-        utc = pytz.UTC
-        now_utc = datetime.now(utc)
-
         # Get last fetch date or default to 30 days ago
         last_fetch = get_last_successful_fetch_date(conn)
+        logger.debug(f"last_fetch: {last_fetch}, type: {type(last_fetch)}")
+        
         if last_fetch:
-            # Ensure last_fetch is UTC-aware
-            last_fetch = last_fetch.replace(tzinfo=utc)
-            start_date = last_fetch.date()
+            start_date = last_fetch  # Assuming last_fetch is a date object
         else:
-            start_date = (now_utc - timedelta(days=30)).date()
+            start_date = (datetime.now().date() - timedelta(days=30))
 
         # Extend end_date to tomorrow for inclusivity
-        end_date = (now_utc + timedelta(days=1)).date()
+        end_date = (datetime.now().date() + timedelta(days=1))
 
         start_date_str = start_date.strftime("%Y-%m-%d")
         end_date_str = end_date.strftime("%Y-%m-%d")
@@ -100,7 +96,7 @@ def fetch_garmin_daily(conn: connection) -> List[dict]:
                 cursor.execute(
                     "INSERT INTO fetch_log (source, fetch_date) VALUES (%s, %s) "
                     "ON CONFLICT (source) DO UPDATE SET fetch_date = EXCLUDED.fetch_date",
-                    ("garmin", now_utc)
+                    ("garmin", datetime.now())
                 )
                 conn.commit()
                 logger.info("Updated last successful fetch date.")
