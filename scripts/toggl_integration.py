@@ -49,9 +49,9 @@ def fetch_toggl_entries(since_days: int = 7) -> List[dict]:
     session = requests.Session()
     session.auth = (toggl_api_key, "api_token")
 
-    since_date = (datetime.utcnow() - timedelta(days=since_days)).strftime(
-        "%Y-%m-%dT00:00:00Z"
-    )
+    since_date = (
+        datetime.utcnow() - timedelta(days=since_days)
+    ).strftime("%Y-%m-%dT00:00:00Z")
     url = (
         "https://api.track.toggl.com/api/v8/time_entries"
         f"?start_date={since_date}"
@@ -105,7 +105,10 @@ def aggregate_by_bucket_daily(entries: List[dict]) -> Dict[str, Dict[str, int]]:
     return daily_buckets
 
 
-def store_toggl_data(conn: connection, daily_buckets: Dict[str, Dict[str, int]]) -> None:
+def store_toggl_data(
+    conn: connection,
+    daily_buckets: Dict[str, Dict[str, int]]
+) -> None:
     """
     Insert or update toggl_time records in the database.
     """
@@ -124,7 +127,10 @@ def store_toggl_data(conn: connection, daily_buckets: Dict[str, Dict[str, int]])
                 )
 
 
-def fetch_and_store_toggl_data(conn: connection, since_days: int = 7) -> None:
+def fetch_and_store_toggl_data(
+    conn: connection,
+    since_days: int = 7
+) -> None:
     """
     Fetch entries from Toggl, aggregate by bucket, and store in DB.
     """
