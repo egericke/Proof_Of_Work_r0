@@ -6,6 +6,7 @@ from instagram_graph_api import InstagramGraphAPI
 
 logger = logging.getLogger(__name__)
 
+
 def post_twitter(image_path, message):
     auth = OAuthHandler(
         os.getenv("TWITTER_API_KEY"),
@@ -23,6 +24,7 @@ def post_twitter(image_path, message):
     )
     logger.info("Posted to Twitter successfully.")
 
+
 def post_instagram(image_path, message):
     api = InstagramGraphAPI(
         user_id=os.getenv("INSTAGRAM_USER_ID"),
@@ -31,6 +33,7 @@ def post_instagram(image_path, message):
     with open(image_path, 'rb') as f:
         api.publish_photo(f, caption=message)
     logger.info("Posted to Instagram successfully.")
+
 
 if __name__ == "__main__":
     main()
