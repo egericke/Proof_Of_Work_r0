@@ -1,6 +1,7 @@
 # scripts/post_to_social.py
 import os
 import logging
+import argparse
 from tweepy import API, OAuthHandler
 from instagram_graph_api import InstagramGraphAPI
 
@@ -34,6 +35,37 @@ def post_instagram(image_path, message):
         api.publish_photo(f, caption=message)
     logger.info("Posted to Instagram successfully.")
 
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Post workout data to social media."
+    )
+    parser.add_argument(
+        "image_path",
+        help="Path to the screenshot image"
+    )
+    parser.add_argument(
+        "message",
+        help="Message to post"
+    )
+    parser.add_argument(
+        "--twitter",
+        action="store_true",
+        help="Post to Twitter"
+    )
+    parser.add_argument(
+        "--instagram",
+        action="store_true",
+        help="Post to Instagram"
+    )
+    args = parser.parse_args()
+
+    logging.basicConfig(level=logging.INFO)
+
+    if args.twitter:
+        post_twitter(args.image_path, args.message)
+    if args.instagram:
+        post_instagram(args.image_path, args.message)
 
 if __name__ == "__main__":
     main()
