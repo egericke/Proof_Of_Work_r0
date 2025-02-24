@@ -2,9 +2,9 @@ import logging
 from datetime import datetime, timedelta
 import requests
 from typing import List
-from . import config  # Relative import from the same package
+import os
 
-# Rest of the code remains unchanged
+# Configure logging
 logger = logging.getLogger(__name__)
 
 def fetch_toggl_entries(since_days: int = 7) -> List[dict]:
@@ -17,12 +17,18 @@ def fetch_toggl_entries(since_days: int = 7) -> List[dict]:
     Returns:
         List[dict]: List of parsed time entries with date, project name, tags, and duration.
     """
-    # Validate API key
-    toggl_api_key = config.TOGGL_API_KEY
-    if not toggl_api_key or not isinstance(toggl_api_key, str):
-        logger.error("Invalid or missing TOGGL_API_KEY. Skipping fetch.")
+    # Retrieve and validate API key
+    toggl_api_key = os.getenv("TOGGL_API_KEY")
+    if not toggl_api_key:
+        logger.error("TOGGL_API_KEY is not set in the environment.")
         return []
-    logger.info(f"Using Toggl API key: {toggl_api_key[:4]}...")  # Verify key
+    if not isinstance(toggl_api_key, str):
+        logger.error(f"TOGGL_API_KEY is not a string, got type {type(toggl_api_key)}.")
+        return []
+    if len(toggl_api_key.strip()) == 0:
+        logger.error("TOGGL_API_KEY is empty or whitespace-only.")
+        return []
+    logger.info(f"Using Toggl API key: {toggl_api_key[:4]}... (length: {len(toggl_api_key)})")
 
     # Set up session with authentication
     session = requests.Session()
@@ -39,16 +45,19 @@ def fetch_toggl_entries(since_days: int = 7) -> List[dict]:
 
     # Send API request with error handling
     try:
-        resp = session.get(url)
+        resp = session.get(url, timeout=10)
         if resp.status_code == 403:
-            logger.error("Authentication failed. Check TOGGL_API_KEY.")
+            logger.error("Authentication failed with status 403. Verify TOGGL_API_KEY validity.")
             return []
         elif resp.status_code == 429:
-            logger.warning("Rate limit exceeded. Consider reducing fetch frequency.")
-            return []  # Optional: Implement retry logic here
+            logger.warning("Rate limit exceeded (429). Consider reducing fetch frequency.")
+            return []
         elif resp.status_code != 200:
             logger.error(f"Toggl fetch failed with status {resp.status_code}: {resp.text}")
             return []
+    except requests.exceptions.Timeout:
+        logger.error("Toggl API request timed out.")
+        return []
     except requests.exceptions.RequestException as e:
         logger.error(f"Network error during Toggl fetch: {str(e)}")
         return []
@@ -56,6 +65,9 @@ def fetch_toggl_entries(since_days: int = 7) -> List[dict]:
     # Parse JSON response
     try:
         data = resp.json()
+        if not isinstance(data, list):
+            logger.error(f"Expected list from Toggl API, got {type(data)}.")
+            return []
     except ValueError:
         logger.error("Failed to parse JSON response from Toggl API.")
         return []
@@ -63,7 +75,6 @@ def fetch_toggl_entries(since_days: int = 7) -> List[dict]:
     # Process entries
     entries = []
     for entry in data:
-        # Validate and parse start time
         start_str = entry.get("start")
         if not start_str:
             logger.warning("Skipping entry without start time.")
@@ -74,12 +85,10 @@ def fetch_toggl_entries(since_days: int = 7) -> List[dict]:
             logger.error(f"Failed to parse start time: {start_str}. Error: {str(e)}")
             continue
 
-        # Skip running timers (duration < 1)
         duration_s = entry.get("duration", 0)
         if duration_s < 1:
             continue
 
-        # Extract project name and tags with validation
         project_name = entry.get("description", "")
         tags = entry.get("tags", []) or []
         if not isinstance(tags, list):
@@ -89,7 +98,6 @@ def fetch_toggl_entries(since_days: int = 7) -> List[dict]:
             )
             tags = []
 
-        # Append valid entry
         entries.append({
             "date": dt.strftime("%Y-%m-%d"),
             "project_name": project_name,
@@ -110,15 +118,19 @@ def store_toggl_entries(conn, entries: List[dict]) -> None:
     """
     cursor = conn.cursor()
     for entry in entries:
-        # Example: Insert into a table named 'toggl_entries'
-        # Adjust the SQL query based on your actual database schema
-        cursor.execute(
-            """
-            INSERT INTO toggl_entries (date, project_name, tags, duration_seconds)
-            VALUES (%s, %s, %s, %s)
-            """,
-            (entry["date"], entry["project_name"], entry["tags"], entry["duration_seconds"])
-        )
+        try:
+            cursor.execute(
+                """
+                INSERT INTO toggl_entries (date, project_name, tags, duration_seconds)
+                VALUES (%s, %s, %s, %s)
+                ON CONFLICT DO NOTHING
+                """,
+                (entry["date"], entry["project_name"], entry["tags"], entry["duration_seconds"])
+            )
+        except Exception as e:
+            logger.error(f"Failed to store entry for {entry['date']}: {str(e)}")
+            conn.rollback()
+            continue
     conn.commit()
     logger.info(f"Stored {len(entries)} Toggl entries in the database.")
 
@@ -135,4 +147,4 @@ def fetch_and_store_toggl_data(conn, since_days: int = 7) -> None:
         store_toggl_entries(conn, entries)
         logger.info("Toggl data fetched and stored successfully")
     else:
-        logger.info("No Toggl entries to store")
+        logger.info("No Toggl entries fetched or stored")
