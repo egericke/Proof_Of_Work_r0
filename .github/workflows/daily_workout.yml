@@ -55,6 +55,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install --no-cache-dir -r requirements.txt
+          pip show supabase  # Verify supabase is installed
 
       - name: Run Python script
         run: python -m scripts.main
