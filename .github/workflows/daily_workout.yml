@@ -68,6 +68,27 @@ jobs:
         run: python -m scripts.main
         continue-on-error: false  # Ensure the workflow fails if the script fails
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install Node dependencies
+        run: |
+          cd web
+          npm install
+
+      - name: Build Next.js app
+        run: |
+          cd web
+          npm run build
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./web/out
+
       - name: Upload debug logs
         if: always()
         uses: actions/upload-artifact@v4
