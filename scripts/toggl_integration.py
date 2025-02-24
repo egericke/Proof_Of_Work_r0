@@ -165,7 +165,7 @@ def fetch_and_store_toggl_data(since_days: int = 7) -> None:
     session.auth = (toggl_api_key, "api_token")
 
     # Replace with your actual workspace ID (get it from Toggl or API)
-    workspace_id = "YOUR_WORKSPACE_ID"  # e.g., "1234567"
+    workspace_id = "6918134"  # e.g., "1234567"
 
     # Fetch projects and entries
     project_mapping = fetch_toggl_projects(session, workspace_id)
