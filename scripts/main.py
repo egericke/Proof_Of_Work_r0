@@ -15,7 +15,7 @@ from scripts.database import (
 )
 from scripts.fetcher import fetch_garmin_daily
 from scripts.toggl_integration import fetch_and_store_toggl_data
-from scripts.habit_fetcher import fetch_habits, store_habit_analysis, get_supabase_client
+from scripts.habit_fetcher import fetch_habits, analyze_habits, store_habit_analysis, get_supabase_client
 
 # Set up logging to console and file
 logging.basicConfig(
@@ -60,14 +60,15 @@ def main():
     except Exception as e:
         logger.error(f"Error fetching or storing Toggl data: {str(e)}")
 
-    # Fetch and analyze habit data (new)
+    # Fetch and analyze habit data (corrected)
     try:
         supabase_client = get_supabase_client()
         today = datetime.now().date()
         start_date = today - timedelta(days=1)  # Fetch habits from the last day
-        habits = fetch_habits(start_date)  # Updated to use fetch_habits with a date object
+        habits = fetch_habits(start_date)  # Fetch habits with a date object
         if habits:
-            store_habit_analysis(supabase_client, habits)
+            analysis = analyze_habits(habits)  # Analyze the fetched habits
+            store_habit_analysis(analysis, today)  # Store the analysis with the date
             logger.info("Habit data fetched and analyzed successfully")
         else:
             logger.info("No new habit data to fetch")
