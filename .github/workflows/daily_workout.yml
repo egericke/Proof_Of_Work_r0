@@ -9,6 +9,8 @@ jobs:
   daily:
     runs-on: ubuntu-latest
     env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_KEY }}
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
       SUPABASE_DB_HOST: ${{ secrets.SUPABASE_DB_HOST }}
@@ -39,6 +41,8 @@ jobs:
 
       - name: Verify environment variables
         run: |
+          echo "NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL"
+          echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY"
           echo "Checking environment variables:"
           echo "SUPABASE_URL=$SUPABASE_URL"
           echo "SUPABASE_KEY=${SUPABASE_KEY:0:4}..." # Partial for security
