@@ -39,19 +39,27 @@ def analyze_habits(habits: List[Dict]) -> Dict:
         "completion_rate": completion_rate
     }
 
+
 def store_habit_analysis(analysis: Dict, date: datetime.date) -> None:
     """Store habit analysis in Supabase."""
-    supabase_client = get_supabase_client()
+    supabase_client = get_supabase_client()  # Assuming this retrieves your Supabase client
     try:
-        response = supabase_client.table("habit_analysis").insert({
-            "date": date,
-            "total_habits": analysis["total_habits"],
-            "completed_habits": analysis["completed_habits"],
-            "completion_rate": analysis["completion_rate"]
-        }).execute()
-        logger.info(f"Stored habit analysis for {date}")
+        # Convert the date object to a string in 'YYYY-MM-DD' format
+        date_str = date.isoformat()
+        
+        # Prepare the data to insert, matching the table's column names
+        data = {
+            "date": date_str,
+            "habit_count": analysis["total_habits"],
+            "consistency_score": analysis["completion_rate"]
+        }
+        
+        # Insert the data into the "habit_analytics" table
+        response = supabase_client.table("habit_analytics").insert(data).execute()
+        logger.info(f"Stored habit analysis for {date_str}")
     except Exception as e:
         logger.error(f"Failed to store habit analysis: {str(e)}")
+        raise  # Optionally re-raise the exception for further handling
 
 if __name__ == "__main__":
     today = datetime.now().date()
