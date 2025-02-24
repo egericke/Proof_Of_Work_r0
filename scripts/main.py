@@ -1,6 +1,13 @@
 # scripts/main.py
+"""
+Main script to fetch and process daily data for My Daily Proof.
+Fetches Garmin/Strava data, Toggl time entries, and habit data,
+storing results in Supabase.
+"""
+
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
+
 from scripts.database import (
     get_db_connection,
     update_last_successful_fetch_date,
@@ -8,7 +15,7 @@ from scripts.database import (
 )
 from scripts.fetcher import fetch_garmin_daily
 from scripts.toggl_integration import fetch_and_store_toggl_data
-from scripts.habit_fetcher import fetch_habits_since, store_habit_analysis, get_supabase_client
+from scripts.habit_fetcher import fetch_habits, store_habit_analysis, get_supabase_client
 
 # Set up logging to console and file
 logging.basicConfig(
@@ -56,7 +63,9 @@ def main():
     # Fetch and analyze habit data (new)
     try:
         supabase_client = get_supabase_client()
-        habits = fetch_habits_since(supabase_client, since_days=1)  # Fetch habits from the last day
+        today = datetime.now().date()
+        start_date = today - timedelta(days=1)  # Fetch habits from the last day
+        habits = fetch_habits(start_date)  # Updated to use fetch_habits with a date object
         if habits:
             store_habit_analysis(supabase_client, habits)
             logger.info("Habit data fetched and analyzed successfully")
