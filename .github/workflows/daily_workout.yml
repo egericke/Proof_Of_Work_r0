@@ -69,10 +69,3 @@ jobs:
           path: '*.log'
           if-no-files-found: ignore
 
-      - name: Notify on failure (optional)
-        if: failure()
-        uses: slackapi/slack-github-action@v1.23.0
-        with:
-          slack-bot-token: ${{ secrets.SLACK_BOT_TOKEN }}
-          channel-id: 'your-channel-id'
-          text: 'Daily Data Fetch failed for My Daily Proof. Check logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}'
