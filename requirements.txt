@@ -2,6 +2,7 @@
 psycopg2==2.9.6
 requests==2.31.0
 python-dotenv==1.0.0
+supabase
 
 # Garmin & Strava
 garminconnect==0.2.25
