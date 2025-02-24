@@ -41,22 +41,22 @@ jobs:
 
       - name: Verify environment variables
         run: |
-          echo "NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL"
-          echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY"
           echo "Checking environment variables:"
-          echo "SUPABASE_URL=$SUPABASE_URL"
-          echo "SUPABASE_KEY=${SUPABASE_KEY:0:4}..." # Partial for security
-          echo "SUPABASE_DB_HOST=$SUPABASE_DB_HOST"
-          echo "SUPABASE_DB_PORT=$SUPABASE_DB_PORT"
-          echo "SUPABASE_DB_NAME=$SUPABASE_DB_NAME"
-          echo "SUPABASE_DB_USER=$SUPABASE_DB_USER"
-          echo "SUPABASE_DB_PASSWORD=${SUPABASE_DB_PASSWORD:0:4}..." # Partial for security
-          echo "GARMIN_USERNAME=$GARMIN_USERNAME"
-          echo "GARMIN_PASSWORD=${GARMIN_PASSWORD:0:4}..."
-          echo "STRAVA_CLIENT_ID=$STRAVA_CLIENT_ID"
-          echo "STRAVA_CLIENT_SECRET=${STRAVA_CLIENT_SECRET:0:4}..."
-          echo "STRAVA_REFRESH_TOKEN=${STRAVA_REFRESH_TOKEN:0:4}..."
-          echo "TOGGL_API_KEY=${TOGGL_API_KEY:0:4}..."
+          [ -n "$NEXT_PUBLIC_SUPABASE_URL" ] && echo "NEXT_PUBLIC_SUPABASE_URL is set" || echo "NEXT_PUBLIC_SUPABASE_URL is not set"
+          [ -n "$NEXT_PUBLIC_SUPABASE_ANON_KEY" ] && echo "NEXT_PUBLIC_SUPABASE_ANON_KEY is set" || echo "NEXT_PUBLIC_SUPABASE_ANON_KEY is not set"
+          [ -n "$SUPABASE_URL" ] && echo "SUPABASE_URL is set" || echo "SUPABASE_URL is not set"
+          [ -n "$SUPABASE_KEY" ] && echo "SUPABASE_KEY is set" || echo "SUPABASE_KEY is not set"
+          [ -n "$SUPABASE_DB_HOST" ] && echo "SUPABASE_DB_HOST is set" || echo "SUPABASE_DB_HOST is not set"
+          [ -n "$SUPABASE_DB_PORT" ] && echo "SUPABASE_DB_PORT is set" || echo "SUPABASE_DB_PORT is not set"
+          [ -n "$SUPABASE_DB_NAME" ] && echo "SUPABASE_DB_NAME is set" || echo "SUPABASE_DB_NAME is not set"
+          [ -n "$SUPABASE_DB_USER" ] && echo "SUPABASE_DB_USER is set" || echo "SUPABASE_DB_USER is not set"
+          [ -n "$SUPABASE_DB_PASSWORD" ] && echo "SUPABASE_DB_PASSWORD is set" || echo "SUPABASE_DB_PASSWORD is not set"
+          [ -n "$GARMIN_USERNAME" ] && echo "GARMIN_USERNAME is set" || echo "GARMIN_USERNAME is not set"
+          [ -n "$GARMIN_PASSWORD" ] && echo "GARMIN_PASSWORD is set" || echo "GARMIN_PASSWORD is not set"
+          [ -n "$STRAVA_CLIENT_ID" ] && echo "STRAVA_CLIENT_ID is set" || echo "STRAVA_CLIENT_ID is not set"
+          [ -n "$STRAVA_CLIENT_SECRET" ] && echo "STRAVA_CLIENT_SECRET is set" || echo "STRAVA_CLIENT_SECRET is not set"
+          [ -n "$STRAVA_REFRESH_TOKEN" ] && echo "STRAVA_REFRESH_TOKEN is set" || echo "STRAVA_REFRESH_TOKEN is not set"
+          [ -n "$TOGGL_API_KEY" ] && echo "TOGGL_API_KEY is set" || echo "TOGGL_API_KEY is not set"
           if [ -z "$TOGGL_API_KEY" ] || [ -z "$SUPABASE_KEY" ]; then
             echo "::error::TOGGL_API_KEY or SUPABASE_KEY is not set or empty. Please check repository secrets."
             exit 1
@@ -88,7 +88,7 @@ jobs:
           npm run build
 
       - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
+        uses: actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./web/out
