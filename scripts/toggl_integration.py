@@ -1,8 +1,8 @@
 import logging
 from datetime import datetime, timedelta
+import os
 import requests
 from typing import List
-import os
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -15,7 +15,8 @@ def fetch_toggl_entries(since_days: int = 7) -> List[dict]:
         since_days (int, optional): Number of days to look back for entries. Defaults to 7.
 
     Returns:
-        List[dict]: List of parsed time entries with date, project name, tags, and duration.
+        List[dict]: List of parsed time entries with id, date, duration_seconds,
+                    project_id, tags, and description.
     """
     # Retrieve and validate API key
     toggl_api_key = os.getenv("TOGGL_API_KEY")
@@ -34,12 +35,11 @@ def fetch_toggl_entries(since_days: int = 7) -> List[dict]:
     session = requests.Session()
     session.auth = (toggl_api_key, "api_token")
 
-
     # Calculate start_date and end_date
     start_date = (datetime.utcnow() - timedelta(days=since_days)).strftime("%Y-%m-%dT00:00:00Z")
-    end_date = datetime.utcnow().strftime("%Y-%m-%dT23:59:59Z")  # End of today
-    
-    # Construct the URL with both parameters
+    end_date = datetime.utcnow().strftime("%Y-%m-%dT23:59:59Z")
+
+    # Construct the URL
     url = (
         "https://api.track.toggl.com/api/v9/me/time_entries"
         f"?start_date={start_date}&end_date={end_date}"
@@ -77,34 +77,38 @@ def fetch_toggl_entries(since_days: int = 7) -> List[dict]:
     # Process entries
     entries = []
     for entry in data:
+        if "id" not in entry:
+            logger.warning("Skipping entry without id.")
+            continue
         start_str = entry.get("start")
         if not start_str:
-            logger.warning("Skipping entry without start time.")
+            logger.warning(f"Skipping entry {entry['id']} without start time.")
             continue
         try:
             dt = datetime.fromisoformat(start_str.replace("Z", "+00:00"))
         except ValueError as e:
-            logger.error(f"Failed to parse start time: {start_str}. Error: {str(e)}")
+            logger.error(f"Failed to parse start time for entry {entry['id']}: {start_str}. Error: {str(e)}")
             continue
 
         duration_s = entry.get("duration", 0)
         if duration_s < 1:
             continue
 
-        project_name = entry.get("description", "")
         tags = entry.get("tags", []) or []
         if not isinstance(tags, list):
             logger.warning(
-                f"Invalid tags format for entry on {dt.strftime('%Y-%m-%d')}. "
+                f"Invalid tags format for entry {entry['id']} on {dt.strftime('%Y-%m-%d')}. "
                 f"Expected list, got {type(tags)}."
             )
             tags = []
 
         entries.append({
-            "date": dt.strftime("%Y-%m-%d"),
-            "project_name": project_name,
+            "id": entry["id"],
+            "date": dt.date(),
+            "duration_seconds": duration_s,
+            "project_id": entry.get("project_id"),
             "tags": tags,
-            "duration_seconds": duration_s
+            "description": entry.get("description", "")
         })
 
     logger.info(f"Fetched {len(entries)} valid Toggl entries.")
@@ -112,10 +116,10 @@ def fetch_toggl_entries(since_days: int = 7) -> List[dict]:
 
 def store_toggl_entries(conn, entries: List[dict]) -> None:
     """
-    Store the fetched Toggl entries into the database.
+    Store the fetched Toggl entries into the Supabase database.
 
     Args:
-        conn: Database connection object.
+        conn: Database connection object (psycopg2 connection to Supabase).
         entries (List[dict]): List of Toggl entries to store.
     """
     cursor = conn.cursor()
@@ -123,30 +127,38 @@ def store_toggl_entries(conn, entries: List[dict]) -> None:
         try:
             cursor.execute(
                 """
-                INSERT INTO toggl_entries (date, project_name, tags, duration_seconds)
-                VALUES (%s, %s, %s, %s)
-                ON CONFLICT DO NOTHING
+                INSERT INTO toggl_entries (id, date, duration_seconds, project_id, tags, description)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                ON CONFLICT (id) DO NOTHING
                 """,
-                (entry["date"], entry["project_name"], entry["tags"], entry["duration_seconds"])
+                (
+                    entry["id"],
+                    entry["date"],
+                    entry["duration_seconds"],
+                    entry["project_id"],
+                    entry["tags"],
+                    entry["description"],
+                ),
             )
         except Exception as e:
-            logger.error(f"Failed to store entry for {entry['date']}: {str(e)}")
+            logger.error(f"Failed to store entry {entry['id']}: {str(e)}")
             conn.rollback()
             continue
     conn.commit()
-    logger.info(f"Stored {len(entries)} Toggl entries in the database.")
+    cursor.close()
+    logger.info(f"Attempted to store {len(entries)} Toggl entries in the database.")
 
 def fetch_and_store_toggl_data(conn, since_days: int = 7) -> None:
     """
-    Fetch Toggl entries for the specified number of days and store them in the database.
+    Fetch Toggl entries and store them in the Supabase database.
 
     Args:
-        conn: Database connection object.
+        conn: Database connection object (psycopg2 connection to Supabase).
         since_days (int, optional): Number of days to look back for entries. Defaults to 7.
     """
     entries = fetch_toggl_entries(since_days)
     if entries:
         store_toggl_entries(conn, entries)
-        logger.info("Toggl data fetched and stored successfully")
+        logger.info("Toggl data fetched and stored successfully.")
     else:
-        logger.info("No Toggl entries fetched or stored")
+        logger.info("No Toggl entries fetched or stored.")
