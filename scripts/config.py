@@ -13,8 +13,9 @@ from dotenv import load_dotenv
 # the environment variables come from secrets configured in the workflow.
 load_dotenv()
 
+# Set up logging (match main.py's DEBUG level for detailed output)
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,  # Set to DEBUG for detailed output, matching main.py
     format="%(asctime)s [%(levelname)s] %(name)s - %(message)s"
 )
 
@@ -33,6 +34,10 @@ SUPABASE_DB_NAME = os.getenv("SUPABASE_DB_NAME")
 SUPABASE_DB_USER = os.getenv("SUPABASE_DB_USER")
 SUPABASE_DB_PASSWORD = os.getenv("SUPABASE_DB_PASSWORD")
 SUPABASE_DB_PORT = os.getenv("SUPABASE_DB_PORT", "5432")
+
+# Supabase REST API credentials (for client library and REST API calls, e.g., habit_fetcher.py)
+SUPABASE_URL = os.getenv("SUPABASE_URL")  # Remove default value to force environment variable usage
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")  # Remove default value to force environment variable usage
 
 # Twitter
 TWITTER_API_KEY = os.getenv("TWITTER_API_KEY")
