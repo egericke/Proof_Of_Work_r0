@@ -34,13 +34,15 @@ def fetch_toggl_entries(since_days: int = 7) -> List[dict]:
     session = requests.Session()
     session.auth = (toggl_api_key, "api_token")
 
-    # Calculate start date for query
-    since_date = (
-        datetime.utcnow() - timedelta(days=since_days)
-    ).strftime("%Y-%m-%dT00:00:00Z")
+
+    # Calculate start_date and end_date
+    start_date = (datetime.utcnow() - timedelta(days=since_days)).strftime("%Y-%m-%dT00:00:00Z")
+    end_date = datetime.utcnow().strftime("%Y-%m-%dT23:59:59Z")  # End of today
+    
+    # Construct the URL with both parameters
     url = (
         "https://api.track.toggl.com/api/v9/me/time_entries"
-        f"?start_date={since_date}"
+        f"?start_date={start_date}&end_date={end_date}"
     )
 
     # Send API request with error handling
