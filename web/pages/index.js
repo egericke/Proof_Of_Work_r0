@@ -1,47 +1,47 @@
 // web/pages/index.js
-import React, { useEffect, useState } from 'react';
-import { Line } from 'react-chartjs-2';
+import { useState } from 'react';
+import OverviewTab from '../components/OverviewTab';
+import FitnessTab from '../components/FitnessTab';
+import TimeManagementTab from '../components/TimeManagementTab';
+import HabitsTab from '../components/HabitsTab';
 
-export default function Home() {
-  const [chartData, setChartData] = useState({ datasets: [] });
-  const [vo2max, setVo2max] = useState(null);
+const Dashboard = () => {
+  const [activeTab, setActiveTab] = useState('overview');
 
-  useEffect(() => {
-    async function fetchWorkouts() {
-      const resW = await fetch('/api/workouts');
-      const workouts = await resW.json();
-
-      const labels = workouts.map((w) => w.workout_date);
-      const metHours = workouts.map((w) => w.met_hours || 0);
-
-      setChartData({
-        labels,
-        datasets: [
-          {
-            label: 'MET Hours',
-            data: metHours,
-            borderColor: 'rgba(75,192,192,1)',
-            fill: false,
-          },
-        ],
-      });
-
-      const resV = await fetch('/api/vo2max');
-      const vo2Data = await resV.json();
-      if (vo2Data.vo2max) {
-        setVo2max(vo2Data.vo2max);
-      }
+  const renderTab = () => {
+    switch (activeTab) {
+      case 'overview':
+        return <OverviewTab />;
+      case 'fitness':
+        return <FitnessTab />;
+      case 'timeManagement':
+        return <TimeManagementTab />;
+      case 'habits':
+        return <HabitsTab />;
+      default:
+        return <OverviewTab />;
     }
-    fetchWorkouts();
-  }, []);
+  };
 
   return (
-    <div>
-      <h1>My Garmin/Strava Workouts</h1>
-      <div style={{ width: '700px' }}>
-        <Line data={chartData} />
-      </div>
-      {vo2max && <p>Latest VO₂ max: {vo2max.toFixed(1)}</p>}
+    <div className="min-h-screen bg-gray-100">
+      <nav className="bg-white shadow">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between h-16">
+            <div className="flex">
+              <button onClick={() => setActiveTab('overview')} className={`px-3 py-2 rounded-md text-sm font-medium ${activeTab === 'overview' ? 'bg-gray-900 text-white' : 'text-gray-700'}`}>Overview</button>
+              <button onClick={() => setActiveTab('fitness')} className={`ml-4 px-3 py-2 rounded-md text-sm font-medium ${activeTab === 'fitness' ? 'bg-gray-900 text-white' : 'text-gray-700'}`}>Fitness</button>
+              <button onClick={() => setActiveTab('timeManagement')} className={`ml-4 px-3 py-2 rounded-md text-sm font-medium ${activeTab === 'timeManagement' ? 'bg-gray-900 text-white' : 'text-gray-700'}`}>Time Management</button>
+              <button onClick={() => setActiveTab('habits')} className={`ml-4 px-3 py-2 rounded-md text-sm font-medium ${activeTab === 'habits' ? 'bg-gray-900 text-white' : 'text-gray-700'}`}>Habits</button>
+            </div>
+          </div>
+        </div>
+      </nav>
+      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        {renderTab()}
+      </main>
     </div>
   );
-}
+};
+
+export default Dashboard;
