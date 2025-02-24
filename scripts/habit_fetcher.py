@@ -16,7 +16,6 @@ def fetch_habits(start_date: datetime.date) -> List[Dict]:
     """Fetch habits from Supabase for the given date range."""
     try:
         supabase_client = get_supabase_client()
-        # Use 'habit_date' instead of 'date' for querying habits
         response = supabase_client.table("habit_tracking").select("*").gte("habit_date", start_date).execute()
         habits = response.data if response.data else []
         logger.info(f"Fetched {len(habits)} habits from Supabase for date range starting {start_date}")
