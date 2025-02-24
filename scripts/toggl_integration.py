@@ -166,13 +166,13 @@ def get_supabase_connection() -> psycopg2.extensions.connection:
         raise
 
 
-def fetch_and_store_toggl_data(since_days: int = 7) -> None:
+def fetch_and_store_toggl_data(conn, since_days: int = 7) -> None:
     """
-    Fetch Toggl data and store it in Supabase.
+    Fetch Toggl data and store it in Supabase using the provided connection.
 
     Args:
-        since_days (int, optional): Number of days to fetch entries for.
-                                    Defaults to 7.
+        conn: Database connection object.
+        since_days (int, optional): Number of days to fetch data for. Defaults to 7.
     """
     # Set up Toggl API session
     toggl_api_key = os.getenv("TOGGL_API_KEY")
@@ -184,7 +184,7 @@ def fetch_and_store_toggl_data(since_days: int = 7) -> None:
     session.auth = (toggl_api_key, "api_token")
 
     # Replace with your actual workspace ID (get it from Toggl or API)
-    workspace_id = "6918134"  # e.g., "1234567"
+    workspace_id = "6918134"  # Example workspace ID
 
     # Fetch projects and entries
     project_mapping = fetch_toggl_projects(session, workspace_id)
@@ -194,12 +194,11 @@ def fetch_and_store_toggl_data(since_days: int = 7) -> None:
         logger.info("No entries to store")
         return
 
-    # Store in Supabase
-    conn = get_supabase_connection()
+    # Store in Supabase using the provided conn
     try:
         store_toggl_entries(conn, entries, project_mapping)
-    finally:
-        conn.close()
+    except Exception as e:
+        logger.error(f"Failed to store Toggl entries: {str(e)}")
 
 
 if __name__ == "__main__":
