@@ -7,7 +7,19 @@ on:
 
 jobs:
   daily:
-    runs-on: ubuntu-latest  # Updated to use the latest Ubuntu version
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_DB_HOST: ${{ secrets.SUPABASE_DB_HOST }}
+      SUPABASE_DB_PORT: ${{ secrets.SUPABASE_DB_PORT }}
+      SUPABASE_DB_NAME: ${{ secrets.SUPABASE_DB_NAME }}
+      SUPABASE_DB_USER: ${{ secrets.SUPABASE_DB_USER }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      GARMIN_USERNAME: ${{ secrets.GARMIN_USERNAME }}
+      GARMIN_PASSWORD: ${{ secrets.GARMIN_PASSWORD }}
+      STRAVA_CLIENT_ID: ${{ secrets.STRAVA_CLIENT_ID }}
+      STRAVA_CLIENT_SECRET: ${{ secrets.STRAVA_CLIENT_SECRET }}
+      STRAVA_REFRESH_TOKEN: ${{ secrets.STRAVA_REFRESH_TOKEN }}
+      TOGGL_API_KEY: ${{ secrets.TOGGL_API_KEY }}
     steps:
       - uses: actions/checkout@v3
 
@@ -16,48 +28,35 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Cache pip dependencies
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
+      - name: Verify environment variables
+        run: |
+          echo "Checking environment variables:"
+          echo "SUPABASE_DB_HOST=$SUPABASE_DB_HOST"
+          echo "SUPABASE_DB_PORT=$SUPABASE_DB_PORT"
+          echo "SUPABASE_DB_NAME=$SUPABASE_DB_NAME"
+          echo "SUPABASE_DB_USER=$SUPABASE_DB_USER"
+          echo "SUPABASE_DB_PASSWORD=${SUPABASE_DB_PASSWORD:0:4}..." # Partial for security
+          echo "GARMIN_USERNAME=$GARMIN_USERNAME"
+          echo "GARMIN_PASSWORD=${GARMIN_PASSWORD:0:4}..."
+          echo "STRAVA_CLIENT_ID=$STRAVA_CLIENT_ID"
+          echo "STRAVA_CLIENT_SECRET=${STRAVA_CLIENT_SECRET:0:4}..."
+          echo "STRAVA_REFRESH_TOKEN=${STRAVA_REFRESH_TOKEN:0:4}..."
+          echo "TOGGL_API_KEY=${TOGGL_API_KEY:0:4}..."
+          if [ -z "$TOGGL_API_KEY" ]; then
+            echo "::error::TOGGL_API_KEY is not set or empty. Please check repository secrets."
+            exit 1
+          fi
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install --no-cache-dir -r requirements.txt
 
-      # Linting remains disabled as per your request
-      # - name: Install linting tools
-      #   run: pip install flake8
-      # - name: Lint code
-      #   run: flake8 scripts/
-
-      - name: Create .env file
-        run: |
-          echo "SUPABASE_DB_HOST=${{ secrets.SUPABASE_DB_HOST }}" >> .env
-          echo "SUPABASE_DB_PORT=${{ secrets.SUPABASE_DB_PORT }}" >> .env
-          echo "SUPABASE_DB_NAME=${{ secrets.SUPABASE_DB_NAME }}" >> .env
-          echo "SUPABASE_DB_USER=${{ secrets.SUPABASE_DB_USER }}" >> .env
-          echo "SUPABASE_DB_PASSWORD=${{ secrets.SUPABASE_DB_PASSWORD }}" >> .env
-          echo "GARMIN_USERNAME=${{ secrets.GARMIN_USERNAME }}" >> .env
-          echo "GARMIN_PASSWORD=${{ secrets.GARMIN_PASSWORD }}" >> .env
-          echo "STRAVA_CLIENT_ID=${{ secrets.STRAVA_CLIENT_ID }}" >> .env
-          echo "STRAVA_CLIENT_SECRET=${{ secrets.STRAVA_CLIENT_SECRET }}" >> .env
-          echo "STRAVA_REFRESH_TOKEN=${{ secrets.STRAVA_REFRESH_TOKEN }}" >> .env
-          echo "TOGGL_API_KEY=${{ secrets.TOGGL_API_KEY }}" >> .env
-
-      # Optional: Verify .env file contents (remove after debugging)
-      - name: Verify .env file
-        run: cat .env
-
       - name: Run Python script
         run: python -m scripts.main
 
       - name: Upload debug logs
-        if: failure()
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: debug-logs
