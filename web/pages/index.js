@@ -1,47 +1,86 @@
 // web/pages/index.js
-import { useState } from 'react';
-import OverviewTab from '../components/OverviewTab';
-import FitnessTab from '../components/FitnessTab';
-import TimeManagementTab from '../components/TimeManagementTab';
-import HabitsTab from '../components/HabitsTab';
+import { useState, useEffect } from 'react';
+import Head from 'next/head';
+import { createClient } from '@supabase/supabase-js';
+import DashboardHeader from '../components/DashboardHeader';
+import DashboardSidebar from '../components/DashboardSidebar';
+import OverviewPanel from '../components/panels/OverviewPanel';
+import FitnessPanel from '../components/panels/FitnessPanel';
+import TimePanel from '../components/panels/TimePanel';
+import HabitsPanel from '../components/panels/HabitsPanel';
+import LoadingOverlay from '../components/LoadingOverlay';
 
-const Dashboard = () => {
-  const [activeTab, setActiveTab] = useState('overview');
+// Initialize Supabase client
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabase = createClient(supabaseUrl, supabaseKey);
 
-  const renderTab = () => {
-    switch (activeTab) {
+export default function Dashboard() {
+  const [activePanel, setActivePanel] = useState('overview');
+  const [userData, setUserData] = useState({
+    name: 'Dashboard User',
+    avatar: '/avatar-placeholder.png'
+  });
+  const [isLoading, setIsLoading] = useState(true);
+  const [dateRange, setDateRange] = useState({
+    startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30 days ago
+    endDate: new Date()
+  });
+  
+  // Simulated data loading
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 1500);
+    
+    return () => clearTimeout(timer);
+  }, []);
+
+  const renderPanel = () => {
+    switch (activePanel) {
       case 'overview':
-        return <OverviewTab />;
+        return <OverviewPanel supabase={supabase} dateRange={dateRange} />;
       case 'fitness':
-        return <FitnessTab />;
-      case 'timeManagement':
-        return <TimeManagementTab />;
+        return <FitnessPanel supabase={supabase} dateRange={dateRange} />;
+      case 'time':
+        return <TimePanel supabase={supabase} dateRange={dateRange} />;
       case 'habits':
-        return <HabitsTab />;
+        return <HabitsPanel supabase={supabase} dateRange={dateRange} />;
       default:
-        return <OverviewTab />;
+        return <OverviewPanel supabase={supabase} dateRange={dateRange} />;
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <nav className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex">
-              <button onClick={() => setActiveTab('overview')} className={`px-3 py-2 rounded-md text-sm font-medium ${activeTab === 'overview' ? 'bg-gray-900 text-white' : 'text-gray-700'}`}>Overview</button>
-              <button onClick={() => setActiveTab('fitness')} className={`ml-4 px-3 py-2 rounded-md text-sm font-medium ${activeTab === 'fitness' ? 'bg-gray-900 text-white' : 'text-gray-700'}`}>Fitness</button>
-              <button onClick={() => setActiveTab('timeManagement')} className={`ml-4 px-3 py-2 rounded-md text-sm font-medium ${activeTab === 'timeManagement' ? 'bg-gray-900 text-white' : 'text-gray-700'}`}>Time Management</button>
-              <button onClick={() => setActiveTab('habits')} className={`ml-4 px-3 py-2 rounded-md text-sm font-medium ${activeTab === 'habits' ? 'bg-gray-900 text-white' : 'text-gray-700'}`}>Habits</button>
-            </div>
+    <div className="flex flex-col min-h-screen bg-gray-900 text-white">
+      <Head>
+        <title>My Daily Proof | Personal Dashboard</title>
+        <meta name="description" content="Personal fitness, time management, and habits tracking dashboard" />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@400;500;600;700&display=swap" rel="stylesheet" />
+      </Head>
+
+      {isLoading && <LoadingOverlay />}
+
+      <DashboardHeader 
+        userData={userData} 
+        dateRange={dateRange}
+        setDateRange={setDateRange}
+      />
+      
+      <div className="flex flex-1 overflow-hidden">
+        <DashboardSidebar 
+          activePanel={activePanel} 
+          setActivePanel={setActivePanel} 
+        />
+        
+        <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 bg-gray-800 bg-opacity-30 backdrop-blur-sm">
+          <div className="max-w-7xl mx-auto">
+            {renderPanel()}
           </div>
-        </div>
-      </nav>
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-        {renderTab()}
-      </main>
+        </main>
+      </div>
     </div>
   );
-};
-
-export default Dashboard;
+}
