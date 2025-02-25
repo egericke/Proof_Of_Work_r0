@@ -1,13 +1,10 @@
 name: Daily Data Fetch
-
 on:
   schedule:
-    - cron: '0 1 * * *'  # Runs daily at 1 AM UTC
+    - cron: '0 1 * * *'  # Runs daily at 1 AM UTC (fixed syntax)
   workflow_dispatch:     # Allows manual triggering
-
 permissions:
   contents: write  # Grants write access for gh-pages deployment
-
 jobs:
   daily:
     runs-on: ubuntu-latest
@@ -29,19 +26,16 @@ jobs:
       TOGGL_API_KEY: ${{ secrets.TOGGL_API_KEY }}
     steps:
       - uses: actions/checkout@v3
-
       - uses: actions/cache@v3
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
           restore-keys: |
             ${{ runner.os }}-pip-
-
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
-
       - name: Verify environment variables
         run: |
           echo "NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL"
@@ -64,38 +58,32 @@ jobs:
             echo "::error::TOGGL_API_KEY or SUPABASE_KEY is not set or empty. Please check repository secrets."
             exit 1
           fi
-
-      - name: Install dependencies
+      - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
           pip install --no-cache-dir -r requirements.txt
           pip show supabase
-
       - name: Run Python script
         run: python -m scripts.main
         continue-on-error: false
-
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '18'
-
       - name: Install Node dependencies
         run: |
           cd web
           npm install
-
+          npm install chart.js@^4.4.1 react-chartjs-2@^5.2.0
       - name: Build Next.js app
         run: |
           cd web
-          npm run build  # Now includes next build && next export
-
+          npm run build
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./web/out
-
       - name: Upload debug logs
         if: always()
         uses: actions/upload-artifact@v4
