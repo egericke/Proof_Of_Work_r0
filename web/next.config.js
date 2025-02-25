@@ -5,6 +5,10 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-}
+  // Add trailing slashes to URLs
+  trailingSlash: true,
+  // Customize the output directory (optional)
+  distDir: 'out',
+};
 
-module.exports = nextConfig
+module.exports = nextConfig;
