@@ -71,7 +71,7 @@ export default function DebugPanel({ supabase }) {
   }
 
   return (
-    <div className="fixed bottom-4 right-4 bg-gray-800 p-4 rounded-lg shadow-lg border border-gray-700 w-full max-w-md">
+    <div className="fixed bottom-4 right-4 bg-gray-800 p-4 rounded-lg shadow-lg border border-gray-700 w-full max-w-md z-50">
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-lg font-bold text-white">Dashboard Debug Panel</h3>
         <button 
@@ -116,7 +116,7 @@ export default function DebugPanel({ supabase }) {
         )}
         
         <div className="text-sm text-gray-400">
-          <p>Add the DebugPanel component to your page to help troubleshoot connection issues.</p>
+          <p>This panel is for development and debugging purposes only.</p>
         </div>
       </div>
     </div>
