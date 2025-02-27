@@ -239,3 +239,4 @@ export default function FitnessPanel({ supabase, dateRange }) {
       </div>
     </div>
   );
+}
