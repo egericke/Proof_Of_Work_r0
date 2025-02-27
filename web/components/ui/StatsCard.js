@@ -1,92 +1,75 @@
-// web/components/ui/StatsCard.js
+// web/components/ui/StatsGrid.js
 import React from 'react';
 
 const iconMap = {
-  heart: (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+  'map': (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
     </svg>
   ),
-  activity: (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+  'flame': (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z" />
     </svg>
   ),
-  clock: (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+  'clock': (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
     </svg>
   ),
-  'check-circle': (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+  'heart': (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
     </svg>
   )
 };
 
-const colorMap = {
-  blue: 'from-blue-400 to-blue-600',
-  purple: 'from-purple-400 to-purple-600',
-  green: 'from-green-400 to-green-600',
-  amber: 'from-amber-400 to-amber-600',
-  red: 'from-red-400 to-red-600'
-};
+export default function StatsGrid({ stats, isLoading }) {
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {Array(4).fill(0).map((_, i) => (
+          <div key={i} className="bg-gray-800 bg-opacity-60 rounded-lg border border-blue-500/20 p-4 backdrop-blur-sm animate-pulse">
+            <div className="flex justify-between items-start mb-2">
+              <div className="h-4 w-24 bg-gray-700 rounded"></div>
+              <div className="h-8 w-8 bg-gray-700 rounded-full"></div>
+            </div>
+            <div className="h-8 w-20 bg-gray-700 rounded mt-4"></div>
+          </div>
+        ))}
+      </div>
+    );
+  }
 
-export default function StatsCard({ title, value, unit, trend, icon, isLoading, color = 'blue' }) {
-  const gradientColor = colorMap[color] || colorMap.blue;
-  
   return (
-    <div className="bg-gray-800 bg-opacity-60 rounded-lg border border-blue-500/20 p-4 backdrop-blur-sm transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/10 hover:scale-[1.02]">
-      {isLoading ? (
-        <div className="animate-pulse">
-          <div className="h-4 w-16 bg-gray-700 rounded mb-4"></div>
-          <div className="h-8 w-28 bg-gray-700 rounded mb-2"></div>
-          <div className="h-4 w-20 bg-gray-700 rounded"></div>
-        </div>
-      ) : (
-        <>
-          <div className="flex justify-between items-center mb-2">
-            <h3 className="text-sm font-medium text-gray-400">{title}</h3>
-            <div className={`p-2 rounded-full bg-gradient-to-br ${gradientColor} bg-opacity-20 text-white`}>
-              {iconMap[icon] || iconMap.activity}
-            </div>
-          </div>
-          
-          <div className="flex items-end">
-            <div className={`text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r ${gradientColor}`}>
-              {value}
-            </div>
-            {unit && <div className="ml-1 text-sm text-gray-400 mb-1">{unit}</div>}
-          </div>
-          
-          {trend !== undefined && (
-            <div className="mt-2 flex items-center">
-              {trend > 0 ? (
-                <span className="text-green-500 flex items-center text-sm">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z" clipRule="evenodd" />
-                  </svg>
-                  +{trend}%
-                </span>
-              ) : trend < 0 ? (
-                <span className="text-red-500 flex items-center text-sm">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M12 13a1 1 0 100 2h5a1 1 0 001-1v-5a1 1 0 10-2 0v2.586l-4.293-4.293a1 1 0 00-1.414 0L8 9.586 3.707 5.293a1 1 0 00-1.414 1.414l5 5a1 1 0 001.414 0L11 9.414 14.586 13H12z" clipRule="evenodd" />
-                  </svg>
-                  {trend}%
-                </span>
-              ) : (
-                <span className="text-gray-500 flex items-center text-sm">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M7 4a1 1 0 010 2H5.414l4.293 4.293a1 1 0 010 1.414L5.414 16H7a1 1 0 110 2H3a1 1 0 01-1-1v-4a1 1 0 112 0v1.586l4.293-4.293a1 1 0 010-1.414L4 6.414V8a1 1 0 01-2 0V4a1 1 0 011-1h4z" clipRule="evenodd" />
-                  </svg>
-                  No change
-                </span>
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {stats.map((stat, index) => (
+        <div 
+          key={index}
+          className="bg-gray-800 bg-opacity-60 rounded-lg border border-blue-500/20 p-4 backdrop-blur-sm transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/10 hover:scale-[1.02]"
+        >
+          <div className="flex justify-between items-start">
+            <h3 className="text-sm font-medium text-gray-400">{stat.title}</h3>
+            <div className="p-2 rounded-full bg-blue-500/20 text-blue-400">
+              {iconMap[stat.icon] || (
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
               )}
             </div>
-          )}
-        </>
-      )}
+          </div>
+          
+          <div className="mt-4 flex items-baseline">
+            <span className="text-2xl font-semibold text-white">
+              {typeof stat.value === 'number' ? stat.value.toLocaleString() : stat.value}
+            </span>
+            {stat.unit && (
+              <span className="ml-1 text-sm text-gray-400">{stat.unit}</span>
+            )}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
