@@ -1,8 +1,15 @@
 // web/pages/_app.js
 import '../styles/globals.css';
 import Head from 'next/head';
+import { useEffect } from 'react';
 
 function MyApp({ Component, pageProps }) {
+  // Fix hydration issues
+  useEffect(() => {
+    // This ensures that the client and server render match
+    document.body.classList.add('dashboard-theme');
+  }, []);
+  
   return (
     <>
       <Head>
