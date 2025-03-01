@@ -1,35 +1,49 @@
 // web/components/ui/DataChart.js
 import React, { useState, useEffect } from 'react';
-import { 
-  Chart as ChartJS, 
-  CategoryScale, 
-  LinearScale, 
-  PointElement, 
-  LineElement, 
-  BarElement,
-  ArcElement,
-  Title, 
-  Tooltip, 
-  Legend,
-  Filler
-} from 'chart.js';
-import { Line, Bar, Pie, Doughnut } from 'react-chartjs-2';
+import dynamic from 'next/dynamic';
 
-// Register ChartJS components
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  ArcElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler
+// Dynamic imports for client-side only components
+const ChartJS = dynamic(
+  () => import('chart.js/auto').then((mod) => {
+    // Register all needed components
+    const { 
+      Chart, 
+      CategoryScale, 
+      LinearScale, 
+      PointElement, 
+      LineElement, 
+      BarElement,
+      ArcElement,
+      Title, 
+      Tooltip, 
+      Legend,
+      Filler
+    } = mod;
+    
+    Chart.register(
+      CategoryScale,
+      LinearScale,
+      PointElement,
+      LineElement,
+      BarElement,
+      ArcElement,
+      Title,
+      Tooltip,
+      Legend,
+      Filler
+    );
+    
+    return mod;
+  }),
+  { ssr: false }
 );
 
-// Custom chart theme
+const Line = dynamic(() => import('react-chartjs-2').then(mod => mod.Line), { ssr: false });
+const Bar = dynamic(() => import('react-chartjs-2').then(mod => mod.Bar), { ssr: false });
+const Pie = dynamic(() => import('react-chartjs-2').then(mod => mod.Pie), { ssr: false });
+const Doughnut = dynamic(() => import('react-chartjs-2').then(mod => mod.Doughnut), { ssr: false });
+
+// Default chart options
 const defaultOptions = {
   responsive: true,
   maintainAspectRatio: true,
@@ -116,9 +130,18 @@ export default function DataChart({
 }) {
   const [chartOptions, setChartOptions] = useState({});
   const [aspectRatio, setAspectRatio] = useState(2); // Default 2:1 ratio
+  const [isMounted, setIsMounted] = useState(false);
+  
+  // Track if component is mounted for client-side rendering
+  useEffect(() => {
+    setIsMounted(true);
+    return () => setIsMounted(false);
+  }, []);
   
   // Update chart options based on screen size
   useEffect(() => {
+    if (typeof window === 'undefined' || !isMounted) return;
+    
     const updateOptions = () => {
       // Set aspect ratio based on screen width
       const screenWidth = window.innerWidth;
@@ -179,9 +202,11 @@ export default function DataChart({
     // Update on resize
     window.addEventListener('resize', updateOptions);
     return () => window.removeEventListener('resize', updateOptions);
-  }, [options, type]);
+  }, [options, type, isMounted]);
 
   const renderChart = () => {
+    if (!isMounted) return null;
+    
     switch (type) {
       case 'line':
         return <Line data={data} options={chartOptions} />;
@@ -202,7 +227,7 @@ export default function DataChart({
         <div className="h-full w-full flex items-center justify-center">
           <div className="h-12 w-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
         </div>
-      ) : data.labels && data.labels.length > 0 ? (
+      ) : isMounted && data && data.labels && data.labels.length > 0 ? (
         renderChart()
       ) : (
         <div className="h-full w-full flex items-center justify-center text-gray-400 text-center p-4">
