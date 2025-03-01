@@ -28,9 +28,9 @@ const iconMap = {
 export default function StatsGrid({ stats, isLoading }) {
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         {Array(4).fill(0).map((_, i) => (
-          <div key={i} className="bg-gray-800 bg-opacity-60 rounded-lg border border-blue-500/20 p-4 backdrop-blur-sm animate-pulse">
+          <div key={i} className="bg-gray-800 bg-opacity-60 rounded-lg border border-blue-500/20 p-3 md:p-4 backdrop-blur-sm animate-pulse">
             <div className="flex justify-between items-start mb-2">
               <div className="h-4 w-24 bg-gray-700 rounded"></div>
               <div className="h-8 w-8 bg-gray-700 rounded-full"></div>
@@ -43,11 +43,11 @@ export default function StatsGrid({ stats, isLoading }) {
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
       {stats.map((stat, index) => (
         <div 
           key={index}
-          className="bg-gray-800 bg-opacity-60 rounded-lg border border-blue-500/20 p-4 backdrop-blur-sm transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/10 hover:scale-[1.02]"
+          className="bg-gray-800 bg-opacity-60 rounded-lg border border-blue-500/20 p-3 md:p-4 backdrop-blur-sm transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/10 hover:scale-[1.02]"
         >
           <div className="flex justify-between items-start">
             <h3 className="text-sm font-medium text-gray-400">{stat.title}</h3>
