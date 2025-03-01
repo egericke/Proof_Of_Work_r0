@@ -5,7 +5,7 @@ export default async function handler(req, res) {
   try {
     // Initialize Supabase client
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     
     if (!supabaseUrl || !supabaseKey) {
       return res.status(500).json({ 
@@ -30,9 +30,9 @@ export default async function handler(req, res) {
     }
     
     // Execute query
-    const { data, error, count } = await query
+    const { data, error } = await query
       .order('date', { ascending: false })
-      .limit(limit);
+      .limit(parseInt(limit));
     
     if (error) {
       throw error;
@@ -40,8 +40,8 @@ export default async function handler(req, res) {
     
     // Return results
     return res.status(200).json({
-      data,
-      count: data.length,
+      data: data || [],
+      count: data ? data.length : 0,
       success: true
     });
   } catch (error) {
