@@ -1,7 +1,51 @@
 // web/components/LoadingOverlay.js
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 
 export default function LoadingOverlay() {
+  const [loadingTime, setLoadingTime] = useState(0);
+  const [showDebugInfo, setShowDebugInfo] = useState(false);
+  
+  // Count how long we've been loading
+  useEffect(() => {
+    const startTime = Date.now();
+    const interval = setInterval(() => {
+      setLoadingTime(Math.floor((Date.now() - startTime) / 1000));
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, []);
+  
+  // Show debug info after 10 seconds of loading
+  useEffect(() => {
+    if (loadingTime >= 10) {
+      setShowDebugInfo(true);
+    }
+  }, [loadingTime]);
+  
+  // Force dashboard to render after 15 seconds regardless of loading state
+  useEffect(() => {
+    if (loadingTime >= 15 && typeof window !== 'undefined') {
+      // Create and append a script to force rendering
+      const script = document.createElement('script');
+      script.innerHTML = `
+        // Force the dashboard to render by bypassing the loading check
+        try {
+          // Find any loading state variable and set it to false
+          for (const key in window) {
+            if (key.startsWith('__NEXT_DATA__')) {
+              console.log('Attempting emergency render bypass');
+              // Force a refresh without the loading overlay
+              window.location.href = '/diagnostic';
+            }
+          }
+        } catch (e) {
+          console.error('Error in emergency render bypass:', e);
+        }
+      `;
+      document.body.appendChild(script);
+    }
+  }, [loadingTime]);
+
   return (
     <div className="fixed inset-0 bg-gray-900 z-50 flex flex-col items-center justify-center">
       <div className="flex flex-col items-center">
@@ -17,7 +61,34 @@ export default function LoadingOverlay() {
         <h2 className="text-xl mt-6 text-white font-bold">
           MY DAILY PROOF
         </h2>
-        <p className="text-blue-300 mt-2 animate-pulse">Loading your personal dashboard...</p>
+        <p className="text-blue-300 mt-2 animate-pulse">Loading your personal dashboard... {loadingTime}s</p>
+        
+        {showDebugInfo && (
+          <div className="mt-8 max-w-md px-4 py-3 bg-gray-800 rounded-lg text-gray-300 text-sm">
+            <p className="text-yellow-400 font-semibold mb-2">Loading is taking longer than expected.</p>
+            <p className="mb-2">This could be caused by:</p>
+            <ul className="list-disc pl-5 space-y-1 mb-3">
+              <li>Slow or unstable internet connection</li>
+              <li>Browser compatibility issues</li>
+              <li>Missing environment variables</li>
+              <li>JavaScript errors</li>
+            </ul>
+            <div className="flex justify-between">
+              <button
+                onClick={() => window.location.reload()}
+                className="px-3 py-1 bg-blue-600 rounded text-sm hover:bg-blue-700"
+              >
+                Refresh Page
+              </button>
+              <button
+                onClick={() => window.location.href = '/diagnostic'}
+                className="px-3 py-1 bg-green-600 rounded text-sm hover:bg-green-700"
+              >
+                Run Diagnostics
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
