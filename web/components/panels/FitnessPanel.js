@@ -36,7 +36,7 @@ const fallbackVo2MaxHistory = [
   { test_date: '2023-01-25', vo2max_value: 44.1 }
 ];
 
-export default function FitnessPanel({ dateRange }) {
+export default function FitnessPanel({ supabase, dateRange }) {
   const [workouts, setWorkouts] = useState([]);
   const [vo2MaxHistory, setVo2MaxHistory] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
