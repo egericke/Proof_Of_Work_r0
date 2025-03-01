@@ -9,10 +9,15 @@ body {
   overflow-x: hidden;
 }
 
+/* Fix for iOS viewport height issues */
+html, body, #__next {
+  @apply h-full;
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -25,6 +30,21 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   @apply bg-blue-500;
+}
+
+/* Mobile scrollbar adjustments */
+@media (max-width: 640px) {
+  ::-webkit-scrollbar {
+    width: 3px;
+    height: 3px;
+  }
+}
+
+/* Hide scrollbar for iOS devices while preserving function */
+@supports (-webkit-touch-callout: none) {
+  .overflow-y-auto, .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+  }
 }
 
 /* Gradient backgrounds */
@@ -83,9 +103,54 @@ body {
   @apply transition-all duration-300 hover:scale-105;
 }
 
-/* Landing page specific styles */
-.hero-gradient {
-  @apply bg-gradient-to-br from-gray-900 via-blue-900/20 to-indigo-900/20;
+/* Fixed height containers for consistent layout on load */
+.chart-fixed-height {
+  min-height: 300px;
+}
+
+.card-fixed-height {
+  min-height: 100px;
+}
+
+/* Accessibility improvements */
+.focus-visible:focus-visible {
+  @apply outline-none ring-2 ring-blue-500;
+}
+
+/* Mobile optimizations */
+@media (max-width: 640px) {
+  .glass-panel {
+    @apply bg-opacity-80; /* More solid background on mobile for better contrast */
+  }
+  
+  /* Reduce hover effects on touch devices */
+  .stat-card, .glass-panel:hover {
+    @apply transform-none shadow-none;
+  }
+}
+
+/* Add support for missing Tailwind classes */
+.xs\:inline {
+  @media (min-width: 480px) {
+    display: inline;
+  }
+}
+
+.xs\:hidden {
+  @media (min-width: 480px) {
+    display: none;
+  }
+}
+
+/* Safari date input fix */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  background: transparent;
+  color: transparent;
+  cursor: pointer;
+  height: 100%;
+  position: absolute;
+  right: 0;
+  width: 100%;
 }
 
 /* Custom dashboard theme class */
