@@ -22,7 +22,7 @@ jobs:
       - name: Install dependencies
         run: |
           cd web
-          npm ci
+          npm install
           
       - name: Create necessary utility files
         run: |
