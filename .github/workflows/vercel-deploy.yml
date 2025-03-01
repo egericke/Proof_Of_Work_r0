@@ -1,0 +1,64 @@
+name: Deploy to Vercel
+on:
+  push:
+    branches:
+      - main  # Or your default branch
+  workflow_dispatch:  # Allows manual triggering
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_KEY }}
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          
+      - name: Install dependencies
+        run: |
+          cd web
+          npm ci
+          
+      - name: Create necessary utility files
+        run: |
+          # Create supabaseClient.js utility
+          mkdir -p web/utils
+          cat > web/utils/supabaseClient.js << 'EOL'
+          // web/utils/supabaseClient.js
+          import { createClient } from '@supabase/supabase-js';
+
+          export const getSupabaseClient = () => {
+            // This function should only run on the client side
+            if (typeof window === 'undefined') {
+              return null;
+            }
+            
+            const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+            const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+            
+            if (!supabaseUrl || !supabaseAnonKey) {
+              console.error('Supabase credentials missing - check your environment variables');
+              return null;
+            }
+            
+            try {
+              return createClient(supabaseUrl, supabaseAnonKey);
+            } catch (error) {
+              console.error('Error creating Supabase client:', error);
+              return null;
+            }
+          };
+          EOL
+          
+      - name: Install Vercel CLI
+        run: npm install -g vercel
+        
+      - name: Deploy to Vercel
+        run: |
+          cd web
+          vercel deploy --prod --token ${{ secrets.VERCEL_TOKEN }} --yes
