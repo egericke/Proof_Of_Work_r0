@@ -5,7 +5,7 @@ export default async function handler(req, res) {
   try {
     // Initialize Supabase client
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     
     if (!supabaseUrl || !supabaseKey) {
       return res.status(500).json({ 
@@ -45,43 +45,43 @@ export default async function handler(req, res) {
       .lte('date', queryEndDate)
       .order('date', { ascending: true });
     
-    // Don't throw error for analytics as it's optional
-    
     // Process habits data for summary statistics
     const habitsByDate = {};
     const habitsByName = {};
     let completedCount = 0;
-    let totalCount = habitsData.length;
+    let totalCount = habitsData ? habitsData.length : 0;
     
-    habitsData.forEach(habit => {
-      // By date
-      if (!habitsByDate[habit.habit_date]) {
-        habitsByDate[habit.habit_date] = {
-          total: 0,
-          completed: 0
-        };
-      }
-      
-      habitsByDate[habit.habit_date].total++;
-      if (habit.completed) {
-        habitsByDate[habit.habit_date].completed++;
-        completedCount++;
-      }
-      
-      // By name
-      const habitName = habit.habit_name || 'Unnamed';
-      if (!habitsByName[habitName]) {
-        habitsByName[habitName] = {
-          total: 0,
-          completed: 0
-        };
-      }
-      
-      habitsByName[habitName].total++;
-      if (habit.completed) {
-        habitsByName[habitName].completed++;
-      }
-    });
+    if (habitsData) {
+      habitsData.forEach(habit => {
+        // By date
+        if (!habitsByDate[habit.habit_date]) {
+          habitsByDate[habit.habit_date] = {
+            total: 0,
+            completed: 0
+          };
+        }
+        
+        habitsByDate[habit.habit_date].total++;
+        if (habit.completed) {
+          habitsByDate[habit.habit_date].completed++;
+          completedCount++;
+        }
+        
+        // By name
+        const habitName = habit.habit_name || 'Unnamed';
+        if (!habitsByName[habitName]) {
+          habitsByName[habitName] = {
+            total: 0,
+            completed: 0
+          };
+        }
+        
+        habitsByName[habitName].total++;
+        if (habit.completed) {
+          habitsByName[habitName].completed++;
+        }
+      });
+    }
     
     // Calculate completion rates for habits
     Object.keys(habitsByName).forEach(name => {
@@ -93,7 +93,7 @@ export default async function handler(req, res) {
     
     // Return processed data
     return res.status(200).json({
-      habits: habitsData,
+      habits: habitsData || [],
       analytics: analyticsData || [],
       summary: {
         totalCount,
