@@ -7,6 +7,9 @@ module.exports = {
   ],
   theme: {
     extend: {
+      screens: {
+        'xs': '480px', // Extra small screen breakpoint
+      },
       fontFamily: {
         'sans': ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
         'orbitron': ['Orbitron', 'ui-sans-serif', 'system-ui'],
@@ -33,7 +36,21 @@ module.exports = {
       },
       animation: {
         'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-      }
+        'spin-slow': 'spin 3s linear infinite',
+      },
+      transitionProperty: {
+        'height': 'height',
+        'spacing': 'margin, padding',
+      },
+      aspectRatio: {
+        '16/9': '16 / 9',
+        '4/3': '4 / 3',
+        '1/1': '1 / 1',
+      },
+      boxShadow: {
+        'blue-glow': '0 0 15px -3px rgba(59, 130, 246, 0.3)',
+        'purple-glow': '0 0 15px -3px rgba(139, 92, 246, 0.3)',
+      },
     },
   },
   plugins: [],
