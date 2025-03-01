@@ -19,6 +19,12 @@ jobs:
         with:
           node-version: '18'
           
+      - name: Print environment variables (redacted)
+        run: |
+          echo "Checking environment variables:"
+          echo "NEXT_PUBLIC_SUPABASE_URL is set: ${{ env.NEXT_PUBLIC_SUPABASE_URL != '' }}"
+          echo "NEXT_PUBLIC_SUPABASE_ANON_KEY is set: ${{ env.NEXT_PUBLIC_SUPABASE_ANON_KEY != '' }}"
+          
       - name: Install dependencies
         run: |
           cd web
@@ -55,10 +61,26 @@ jobs:
           };
           EOL
           
+      - name: Create Vercel configuration file
+        run: |
+          cd web
+          cat > .vercel.json << EOL
+          {
+            "version": 2,
+            "public": false,
+            "env": {
+              "NEXT_PUBLIC_SUPABASE_URL": "${NEXT_PUBLIC_SUPABASE_URL}",
+              "NEXT_PUBLIC_SUPABASE_ANON_KEY": "${NEXT_PUBLIC_SUPABASE_ANON_KEY}"
+            }
+          }
+          EOL
+          
       - name: Install Vercel CLI
         run: npm install -g vercel
         
       - name: Deploy to Vercel
         run: |
           cd web
-          vercel deploy --prod --token ${{ secrets.VERCEL_TOKEN }} --yes
+          vercel deploy --prod --token ${{ secrets.VERCEL_TOKEN }} --yes \
+            -e NEXT_PUBLIC_SUPABASE_URL="${NEXT_PUBLIC_SUPABASE_URL}" \
+            -e NEXT_PUBLIC_SUPABASE_ANON_KEY="${NEXT_PUBLIC_SUPABASE_ANON_KEY}"
