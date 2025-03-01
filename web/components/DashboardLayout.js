@@ -12,6 +12,24 @@ import FitnessPanel from './panels/FitnessPanel';
 import TimePanel from './panels/TimePanel';
 import HabitsPanel from './panels/HabitsPanel';
 
+// Create a singleton Supabase client for use throughout the app
+let supabaseInstance = null;
+
+const getSupabaseClient = () => {
+  if (supabaseInstance) return supabaseInstance;
+  
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  
+  if (!supabaseUrl || !supabaseKey) {
+    console.error('Supabase credentials not found. Check your environment variables.');
+    return null;
+  }
+  
+  supabaseInstance = createClient(supabaseUrl, supabaseKey);
+  return supabaseInstance;
+};
+
 export default function DashboardLayout() {
   const [supabase, setSupabase] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -31,31 +49,26 @@ export default function DashboardLayout() {
   useEffect(() => {
     const initSupabase = async () => {
       try {
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        // Use our singleton function to get the client
+        const supabaseClient = getSupabaseClient();
         
-        // Add this for debugging
-        console.log("Supabase URL:", supabaseUrl ? "Set" : "Not set");
-        console.log("Supabase Key:", supabaseKey ? "Set" : "Not set");
-        
-        if (!supabaseUrl || !supabaseKey) {
-          throw new Error('Supabase credentials not found. Check your environment variables.');
+        if (!supabaseClient) {
+          throw new Error('Failed to initialize Supabase client');
         }
         
-        const supabaseClient = createClient(supabaseUrl, supabaseKey);
         setSupabase(supabaseClient);
         
-        // For easier development/testing, proceed even without valid Supabase credentials
+        // Simulate a loading state for better UX
         setTimeout(() => {
           setIsLoading(false);
-        }, 1500);
+        }, 1000);
       } catch (error) {
         console.error('Error initializing Supabase client:', error);
         setLoadError(error.message);
         // Still stop loading after error to prevent being stuck on loading screen
         setTimeout(() => {
           setIsLoading(false);
-        }, 1500);
+        }, 1000);
       }
     };
     
@@ -82,17 +95,6 @@ export default function DashboardLayout() {
           >
             Retry
           </button>
-        </div>
-      );
-    }
-
-    if (!supabase) {
-      return (
-        <div className="flex flex-col items-center justify-center h-full p-8">
-          <div className="text-xl text-yellow-400 mb-4">Database connection unavailable</div>
-          <p className="text-gray-400 max-w-md text-center">
-            Unable to connect to the database. The dashboard will run in demo mode with sample data.
-          </p>
         </div>
       );
     }
