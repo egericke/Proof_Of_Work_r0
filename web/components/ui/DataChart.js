@@ -1,5 +1,5 @@
 // web/components/ui/DataChart.js
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Chart as ChartJS, 
   CategoryScale, 
@@ -32,12 +32,17 @@ ChartJS.register(
 // Custom chart theme
 const defaultOptions = {
   responsive: true,
-  maintainAspectRatio: false,
+  maintainAspectRatio: true,
   plugins: {
     legend: {
       position: 'top',
       labels: {
-        color: '#D1D5DB' // text-gray-300
+        color: '#D1D5DB', // text-gray-300
+        boxWidth: 12,
+        padding: 10,
+        font: {
+          size: 11
+        }
       }
     },
     tooltip: {
@@ -60,7 +65,12 @@ const defaultOptions = {
         borderColor: 'rgba(31, 41, 55, 0.5)' // gray-800 with more opacity
       },
       ticks: {
-        color: '#9CA3AF' // text-gray-400
+        color: '#9CA3AF', // text-gray-400
+        maxRotation: 45,
+        minRotation: 0,
+        font: {
+          size: 10
+        }
       }
     },
     y: {
@@ -69,7 +79,10 @@ const defaultOptions = {
         borderColor: 'rgba(31, 41, 55, 0.5)' // gray-800 with more opacity
       },
       ticks: {
-        color: '#9CA3AF' // text-gray-400
+        color: '#9CA3AF', // text-gray-400
+        font: {
+          size: 10
+        }
       }
     }
   },
@@ -79,8 +92,8 @@ const defaultOptions = {
       borderWidth: 2
     },
     point: {
-      radius: 4,
-      hoverRadius: 6,
+      radius: 3,
+      hoverRadius: 5,
       borderWidth: 2,
       backgroundColor: '#1F2937' // gray-800
     },
@@ -101,11 +114,73 @@ export default function DataChart({
   isLoading = false,
   options = {} 
 }) {
-  const chartOptions = {
-    ...defaultOptions,
-    ...options
-  };
+  const [chartOptions, setChartOptions] = useState({});
+  const [aspectRatio, setAspectRatio] = useState(2); // Default 2:1 ratio
   
+  // Update chart options based on screen size
+  useEffect(() => {
+    const updateOptions = () => {
+      // Set aspect ratio based on screen width
+      const screenWidth = window.innerWidth;
+      let newAspectRatio;
+      
+      if (screenWidth < 640) {
+        // Mobile - more compact
+        newAspectRatio = 1.25;
+      } else if (screenWidth < 1024) {
+        // Tablet
+        newAspectRatio = 1.75;
+      } else {
+        // Desktop
+        newAspectRatio = 2;
+      }
+      
+      setAspectRatio(newAspectRatio);
+      
+      // Create responsive options
+      const responsiveOptions = {
+        ...defaultOptions,
+        ...options,
+        responsive: true,
+        maintainAspectRatio: true,
+        aspectRatio: newAspectRatio,
+        plugins: {
+          ...defaultOptions.plugins,
+          ...options.plugins,
+          legend: {
+            ...defaultOptions.plugins?.legend,
+            ...options.plugins?.legend,
+            display: type === 'pie' || type === 'doughnut' ? true : screenWidth > 640
+          }
+        },
+        scales: {
+          ...defaultOptions.scales,
+          ...options.scales,
+          x: {
+            ...defaultOptions.scales.x,
+            ...options.scales?.x,
+            ticks: {
+              ...defaultOptions.scales.x.ticks,
+              ...options.scales?.x?.ticks,
+              maxRotation: screenWidth < 640 ? 90 : 45,
+              autoSkip: true,
+              maxTicksLimit: screenWidth < 640 ? 6 : 12
+            }
+          }
+        }
+      };
+      
+      setChartOptions(responsiveOptions);
+    };
+    
+    // Initial update
+    updateOptions();
+    
+    // Update on resize
+    window.addEventListener('resize', updateOptions);
+    return () => window.removeEventListener('resize', updateOptions);
+  }, [options, type]);
+
   const renderChart = () => {
     switch (type) {
       case 'line':
@@ -122,7 +197,7 @@ export default function DataChart({
   };
 
   return (
-    <div style={{ height: `${height}px` }}>
+    <div className="relative w-full" style={{ height: `${height}px` }}>
       {isLoading ? (
         <div className="h-full w-full flex items-center justify-center">
           <div className="h-12 w-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
@@ -130,7 +205,7 @@ export default function DataChart({
       ) : data.labels && data.labels.length > 0 ? (
         renderChart()
       ) : (
-        <div className="h-full w-full flex items-center justify-center text-gray-400">
+        <div className="h-full w-full flex items-center justify-center text-gray-400 text-center p-4">
           No data available for the selected period
         </div>
       )}
