@@ -1,14 +1,13 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  output: 'export',
+  // We'll go with a full Next.js app with API routes instead of static export
+  // This allows your API routes to work properly
   images: {
-    unoptimized: true,
+    domains: ['lh3.googleusercontent.com', 'avatars.githubusercontent.com'], // If you're using external images
+    unoptimized: process.env.NODE_ENV === 'development', // Only unoptimize in dev
   },
-  // Add trailing slashes to URLs
-  trailingSlash: true,
-  // Customize the output directory (optional)
-  distDir: 'out',
+  // Remove the output: 'export' setting to enable API routes
 };
 
 module.exports = nextConfig;
