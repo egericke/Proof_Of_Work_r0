@@ -5,9 +5,5 @@
   "installCommand": "npm install",
   "outputDirectory": ".next",
   "public": false,
-  "regions": ["iad1"],
-  "env": {
-    "NEXT_PUBLIC_SUPABASE_URL": "@NEXT_PUBLIC_SUPABASE_URL",
-    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "@NEXT_PUBLIC_SUPABASE_ANON_KEY"
-  }
+  "regions": ["iad1"]
 }
