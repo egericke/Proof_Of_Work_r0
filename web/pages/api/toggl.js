@@ -5,7 +5,7 @@ export default async function handler(req, res) {
   try {
     // Initialize Supabase client
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     
     if (!supabaseUrl || !supabaseKey) {
       return res.status(500).json({ 
@@ -43,26 +43,28 @@ export default async function handler(req, res) {
     const bucketTotals = {};
     const dateBreakdown = {};
     
-    data.forEach(entry => {
-      // Calculate bucket totals
-      if (!bucketTotals[entry.bucket]) {
-        bucketTotals[entry.bucket] = 0;
-      }
-      bucketTotals[entry.bucket] += entry.hours;
-      
-      // Calculate date breakdown
-      if (!dateBreakdown[entry.date]) {
-        dateBreakdown[entry.date] = {};
-      }
-      if (!dateBreakdown[entry.date][entry.bucket]) {
-        dateBreakdown[entry.date][entry.bucket] = 0;
-      }
-      dateBreakdown[entry.date][entry.bucket] += entry.hours;
-    });
+    if (data) {
+      data.forEach(entry => {
+        // Calculate bucket totals
+        if (!bucketTotals[entry.bucket]) {
+          bucketTotals[entry.bucket] = 0;
+        }
+        bucketTotals[entry.bucket] += entry.hours;
+        
+        // Calculate date breakdown
+        if (!dateBreakdown[entry.date]) {
+          dateBreakdown[entry.date] = {};
+        }
+        if (!dateBreakdown[entry.date][entry.bucket]) {
+          dateBreakdown[entry.date][entry.bucket] = 0;
+        }
+        dateBreakdown[entry.date][entry.bucket] += entry.hours;
+      });
+    }
     
     // Return processed data
     return res.status(200).json({
-      raw: data,
+      raw: data || [],
       summary: {
         bucketTotals,
         dateBreakdown
