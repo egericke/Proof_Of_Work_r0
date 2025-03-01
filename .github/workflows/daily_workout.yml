@@ -399,3 +399,657 @@ jobs:
                             }
                           }
                         }
+                        }}
+                    />
+                  </div>
+                  
+                  <div className="flex flex-col gap-6">
+                    <QuoteCard 
+                      quote="Consistency over intensity. Those who show up every day outperform those who show up occasionally with maximum effort."
+                      author="James Clear"
+                    />
+                    
+                    <ActivityFeed 
+                      activities={recentActivities}
+                      isLoading={isLoading}
+                    />
+                  </div>
+                </div>
+                
+                <div className="bg-gray-800 bg-opacity-60 rounded-lg border border-blue-500/20 p-6 backdrop-blur-sm">
+                  <h3 className="text-lg font-medium text-blue-300 mb-4">Dashboard Inspiration</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div className="p-4 rounded-lg bg-gray-800/50 border border-blue-500/10">
+                      <h4 className="text-blue-300 font-medium mb-2">Naval Ravikant</h4>
+                      <p className="text-gray-300 text-sm">Prioritizing health, learning, and deep work as foundational elements for personal growth and wealth creation.</p>
+                    </div>
+                    
+                    <div className="p-4 rounded-lg bg-gray-800/50 border border-purple-500/10">
+                      <h4 className="text-purple-300 font-medium mb-2">Peter Attia</h4>
+                      <p className="text-gray-300 text-sm">Tracking fitness metrics like VO2 max, strength, and other longevity indicators to optimize health over the long term.</p>
+                    </div>
+                    
+                    <div className="p-4 rounded-lg bg-gray-800/50 border border-green-500/10">
+                      <h4 className="text-green-300 font-medium mb-2">Balaji Srinivasan</h4>
+                      <p className="text-gray-300 text-sm">Public accountability through "Proof of Workout" concept, encouraging transparency in fitness and productivity efforts.</p>
+                    </div>
+                    
+                    <div className="p-4 rounded-lg bg-gray-800/50 border border-amber-500/10">
+                      <h4 className="text-amber-300 font-medium mb-2">James Clear</h4>
+                      <p className="text-gray-300 text-sm">Emphasizing small, consistent habits to drive meaningful change. Making habit data public reinforces accountability.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          }
+          EOL
+
+          # Fix FitnessPanel.js
+          cat > web/components/panels/FitnessPanel.js << 'EOL'
+          // web/components/panels/FitnessPanel.js
+          import { useState, useEffect } from 'react';
+          import DataChart from '../ui/DataChart';
+          import WorkoutCard from '../ui/WorkoutCard';
+          import MetricInput from '../ui/MetricInput';
+          import StatsGrid from '../ui/StatsGrid';
+          import { getSupabaseClient } from '../../utils/supabaseClient';
+
+          // Fallback data
+          const fallbackWorkouts = [
+            {
+              id: 1,
+              date: '2023-01-10',
+              activity_type: 'Running',
+              title: 'Morning Run',
+              distance: 5200,
+              time: 1800,
+              calories: 450,
+              avg_hr: 155
+            },
+            {
+              id: 2,
+              date: '2023-01-08',
+              activity_type: 'Cycling',
+              title: 'Weekend Ride',
+              distance: 15000,
+              time: 3600,
+              calories: 620,
+              avg_hr: 145
+            }
+          ];
+
+          const fallbackVo2MaxHistory = [
+            { test_date: '2023-01-05', vo2max_value: 42.5 },
+            { test_date: '2023-01-15', vo2max_value: 43.2 },
+            { test_date: '2023-01-25', vo2max_value: 44.1 }
+          ];
+
+          export default function FitnessPanel({ dateRange }) {
+            const [workouts, setWorkouts] = useState([]);
+            const [vo2MaxHistory, setVo2MaxHistory] = useState([]);
+            const [isLoading, setIsLoading] = useState(true);
+            const [workoutStats, setWorkoutStats] = useState({
+              totalDistance: 0,
+              totalCalories: 0,
+              totalTime: 0,
+              avgHeartRate: 0
+            });
+
+            // Format dates for data fetching
+            const formatDateParam = (date) => {
+              return date.toISOString().split('T')[0];
+            };
+
+            // Fetch fitness data directly from Supabase
+            useEffect(() => {
+              async function fetchData() {
+                setIsLoading(true);
+                
+                try {
+                  // Format date range
+                  const startDateStr = formatDateParam(dateRange.startDate);
+                  const endDateStr = formatDateParam(dateRange.endDate);
+                  
+                  // Get Supabase client
+                  const supabase = getSupabaseClient();
+                  
+                  // Initialize with fallback data
+                  let workoutsData = fallbackWorkouts;
+                  let vo2MaxData = fallbackVo2MaxHistory;
+                  
+                  if (supabase) {
+                    // Fetch workout stats
+                    const { data: workoutsFetched, error: workoutsError } = await supabase
+                      .from('workout_stats')
+                      .select('*')
+                      .gte('date', startDateStr)
+                      .lte('date', endDateStr)
+                      .order('date', { ascending: false });
+                    
+                    if (!workoutsError && workoutsFetched && workoutsFetched.length > 0) {
+                      workoutsData = workoutsFetched;
+                    } else if (workoutsError) {
+                      console.error('Error fetching workouts:', workoutsError);
+                    }
+                    
+                    // Fetch VO2 Max history
+                    const { data: vo2MaxFetched, error: vo2MaxError } = await supabase
+                      .from('vo2max_tests')
+                      .select('*')
+                      .gte('test_date', startDateStr)
+                      .lte('test_date', endDateStr)
+                      .order('test_date', { ascending: true });
+                    
+                    if (!vo2MaxError && vo2MaxFetched && vo2MaxFetched.length > 0) {
+                      vo2MaxData = vo2MaxFetched;
+                    } else if (vo2MaxError) {
+                      console.error('Error fetching VO2 Max data:', vo2MaxError);
+                    }
+                  }
+                  
+                  // Process workout data
+                  setWorkouts(workoutsData);
+                  
+                  // Calculate workout stats
+                  const totalDistance = workoutsData.reduce((sum, w) => sum + (w.distance || 0), 0);
+                  const totalCalories = workoutsData.reduce((sum, w) => sum + (w.calories || 0), 0);
+                  const totalTime = workoutsData.reduce((sum, w) => sum + (w.time || 0), 0);
+                  
+                  const heartRateWorkouts = workoutsData.filter(w => w.avg_hr);
+                  const avgHeartRate = heartRateWorkouts.length 
+                    ? heartRateWorkouts.reduce((sum, w) => sum + w.avg_hr, 0) / heartRateWorkouts.length 
+                    : 0;
+                    
+                  setWorkoutStats({
+                    totalDistance: parseFloat((totalDistance / 1000).toFixed(1)), // Convert to km
+                    totalCalories: totalCalories,
+                    totalTime: Math.round(totalTime / 60), // Convert to minutes
+                    avgHeartRate: Math.round(avgHeartRate)
+                  });
+                  
+                  // Process VO2 Max data
+                  setVo2MaxHistory(vo2MaxData);
+                  
+                } catch (error) {
+                  console.error('Error fetching fitness data:', error);
+                  // Use fallback data on error
+                  setWorkouts(fallbackWorkouts);
+                  setVo2MaxHistory(fallbackVo2MaxHistory);
+                } finally {
+                  setIsLoading(false);
+                }
+              }
+              
+              fetchData();
+            }, [dateRange]);
+
+            // VO2 Max Chart Data
+            const vo2MaxChartData = {
+              labels: vo2MaxHistory.map(d => d.test_date),
+              datasets: [
+                {
+                  label: 'VO₂ Max',
+                  data: vo2MaxHistory.map(d => d.vo2max_value),
+                  borderColor: 'rgba(139, 92, 246, 0.8)',
+                  backgroundColor: 'rgba(139, 92, 246, 0.2)',
+                  tension: 0.3,
+                  fill: true
+                }
+              ]
+            };
+            
+            // Workout activity by type
+            const activityTypes = workouts.reduce((acc, workout) => {
+              const type = workout.activity_type || 'unknown';
+              acc[type] = (acc[type] || 0) + 1;
+              return acc;
+            }, {});
+            
+            const activityChartData = {
+              labels: Object.keys(activityTypes),
+              datasets: [
+                {
+                  data: Object.values(activityTypes),
+                  backgroundColor: [
+                    'rgba(59, 130, 246, 0.8)',
+                    'rgba(16, 185, 129, 0.8)',
+                    'rgba(239, 68, 68, 0.8)',
+                    'rgba(245, 158, 11, 0.8)',
+                    'rgba(139, 92, 246, 0.8)'
+                  ],
+                  borderWidth: 0
+                }
+              ]
+            };
+
+            // Handle VO2 Max Input - direct Supabase mutation
+            const handleVo2MaxSubmit = async (value) => {
+              try {
+                const supabase = getSupabaseClient();
+                if (!supabase) {
+                  throw new Error('Supabase client not available');
+                }
+                
+                const today = new Date().toISOString().split('T')[0];
+                
+                // Insert directly to Supabase
+                const { error } = await supabase
+                  .from('vo2max_tests')
+                  .upsert({
+                    test_date: today,
+                    vo2max_value: parseFloat(value),
+                    notes: ''
+                  }, {
+                    onConflict: 'test_date'
+                  });
+                  
+                if (error) {
+                  throw error;
+                }
+                
+                // Refresh VO2 Max data
+                const { data: refreshData, error: refreshError } = await supabase
+                  .from('vo2max_tests')
+                  .select('*')
+                  .gte('test_date', formatDateParam(dateRange.startDate))
+                  .lte('test_date', formatDateParam(dateRange.endDate))
+                  .order('test_date', { ascending: true });
+                
+                if (refreshError) {
+                  throw refreshError;
+                }
+                
+                if (refreshData) {
+                  setVo2MaxHistory(refreshData);
+                }
+                
+                return true;
+              } catch (error) {
+                console.error('Error saving VO2 Max:', error);
+                return false;
+              }
+            };
+            
+            return (
+              <div className="space-y-6">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
+                  <h2 className="text-2xl font-orbitron text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500">
+                    Fitness Tracker
+                  </h2>
+                  
+                  <MetricInput 
+                    label="Add VO₂ Max Reading" 
+                    placeholder="e.g. 42.5"
+                    unit="ml/kg/min"
+                    onSubmit={handleVo2MaxSubmit}
+                  />
+                </div>
+                
+                <StatsGrid 
+                  stats={[
+                    { title: 'Total Distance', value: workoutStats.totalDistance, unit: 'km', icon: 'map' },
+                    { title: 'Total Calories', value: workoutStats.totalCalories, unit: 'kcal', icon: 'flame' },
+                    { title: 'Active Time', value: workoutStats.totalTime, unit: 'min', icon: 'clock' },
+                    { title: 'Avg Heart Rate', value: workoutStats.avgHeartRate, unit: 'bpm', icon: 'heart' }
+                  ]}
+                  isLoading={isLoading}
+                />
+                
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  <div className="lg:col-span-2 bg-gray-800 bg-opacity-60 rounded-lg border border-blue-500/20 p-4 backdrop-blur-sm">
+                    <h3 className="text-lg font-medium text-blue-300 mb-4">VO₂ Max Trend</h3>
+                    <DataChart 
+                      data={vo2MaxChartData} 
+                      type="line" 
+                      height={300}
+                      isLoading={isLoading || vo2MaxHistory.length === 0}
+                      options={{
+                        scales: {
+                          y: {
+                            min: Math.max(0, Math.min(...vo2MaxHistory.map(d => d.vo2max_value || 0)) - 5),
+                            max: Math.max(...vo2MaxHistory.map(d => d.vo2max_value || 0)) + 5
+                          }
+                        }
+                      }}
+                    />
+                  </div>
+                  
+                  <div className="bg-gray-800 bg-opacity-60 rounded-lg border border-blue-500/20 p-4 backdrop-blur-sm">
+                    <h3 className="text-lg font-medium text-blue-300 mb-4">Activity Types</h3>
+                    <DataChart 
+                      data={activityChartData} 
+                      type="doughnut" 
+                      height={250}
+                      isLoading={isLoading || workouts.length === 0}
+                      options={{
+                        plugins: {
+                          legend: {
+                            position: 'bottom'
+                          }
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
+                
+                <div className="bg-gray-800 bg-opacity-60 rounded-lg border border-blue-500/20 p-4 backdrop-blur-sm">
+                  <h3 className="text-lg font-medium text-blue-300 mb-4">Recent Workouts</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {isLoading ? (
+                      Array(3).fill(0).map((_, i) => (
+                        <WorkoutCard key={i} isLoading={true} />
+                      ))
+                    ) : workouts.length > 0 ? (
+                      workouts.slice(0, 6).map((workout, index) => (
+                        <WorkoutCard
+                          key={index}
+                          activityType={workout.activity_type}
+                          title={workout.title}
+                          date={workout.date}
+                          distance={workout.distance}
+                          duration={workout.time}
+                          calories={workout.calories}
+                          heartRate={workout.avg_hr}
+                        />
+                      ))
+                    ) : (
+                      <div className="col-span-3 py-8 text-center text-gray-400">
+                        No workouts found in the selected date range.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          }
+          EOL
+
+          # Update DashboardLayout.js to not use API routes
+          cat > web/components/DashboardLayout.js << 'EOL'
+          // web/components/DashboardLayout.js
+          import { useState, useEffect } from 'react';
+          import DashboardSidebar from './DashboardSidebar';
+          import DashboardHeader from './DashboardHeader';
+          import LoadingOverlay from './LoadingOverlay';
+          import DebugPanel from './DebugPanel';
+          import { getSupabaseClient } from '../utils/supabaseClient';
+
+          // Panel components
+          import OverviewPanel from './panels/OverviewPanel';
+          import FitnessPanel from './panels/FitnessPanel';
+          import TimePanel from './panels/TimePanel';
+          import HabitsPanel from './panels/HabitsPanel';
+
+          export default function DashboardLayout() {
+            const [isLoading, setIsLoading] = useState(true);
+            const [loadError, setLoadError] = useState(null);
+            const [activePanel, setActivePanel] = useState('overview');
+            const [sidebarOpen, setSidebarOpen] = useState(false);
+            const [dateRange, setDateRange] = useState({
+              startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30 days ago
+              endDate: new Date() // Today
+            });
+            const [userData, setUserData] = useState({
+              name: 'Dashboard User',
+              avatar: '/avatar-placeholder.png'
+            });
+
+            // Initialize app and Supabase check
+            useEffect(() => {
+              const initApp = async () => {
+                try {
+                  // Check if Supabase client can be initialized
+                  const supabase = getSupabaseClient();
+                  
+                  if (!supabase) {
+                    console.warn('Supabase client could not be initialized. The app will use fallback data.');
+                  }
+                  
+                  // Simulate loading for better UX
+                  setTimeout(() => {
+                    setIsLoading(false);
+                  }, 1000);
+                } catch (error) {
+                  console.error('Error initializing app:', error);
+                  setLoadError(error.message);
+                  
+                  // Still stop loading after error
+                  setTimeout(() => {
+                    setIsLoading(false);
+                  }, 1000);
+                }
+              };
+              
+              initApp();
+            }, []);
+
+            // Toggle sidebar for mobile
+            const toggleSidebar = () => {
+              setSidebarOpen(!sidebarOpen);
+            };
+
+            // Render active panel based on selection
+            const renderActivePanel = () => {
+              if (loadError) {
+                return (
+                  <div className="flex flex-col items-center justify-center h-full p-8">
+                    <div className="text-xl text-red-400 mb-4">Error loading dashboard</div>
+                    <p className="text-gray-400 max-w-md text-center mb-4">
+                      {loadError}
+                    </p>
+                    <button 
+                      onClick={() => window.location.reload()}
+                      className="px-4 py-2 bg-blue-600 rounded text-white hover:bg-blue-700 transition-colors"
+                    >
+                      Retry
+                    </button>
+                  </div>
+                );
+              }
+
+              switch (activePanel) {
+                case 'overview':
+                  return <OverviewPanel dateRange={dateRange} />;
+                case 'fitness':
+                  return <FitnessPanel dateRange={dateRange} />;
+                case 'time':
+                  return <TimePanel dateRange={dateRange} />;
+                case 'habits':
+                  return <HabitsPanel dateRange={dateRange} />;
+                default:
+                  return <OverviewPanel dateRange={dateRange} />;
+              }
+            };
+
+            if (isLoading) {
+              return <LoadingOverlay />;
+            }
+
+            return (
+              <div className="flex flex-col h-screen overflow-hidden bg-gradient-to-br from-gray-900 via-gray-900 to-gray-800">
+                <DashboardHeader 
+                  userData={userData} 
+                  dateRange={dateRange} 
+                  setDateRange={setDateRange} 
+                  toggleSidebar={toggleSidebar}
+                />
+                
+                <div className="flex flex-1 overflow-hidden">
+                  {/* Mobile sidebar backdrop */}
+                  {sidebarOpen && (
+                    <div 
+                      className="fixed inset-0 bg-gray-900 bg-opacity-50 z-20 md:hidden"
+                      onClick={() => setSidebarOpen(false)}
+                    ></div>
+                  )}
+
+                  <DashboardSidebar 
+                    activePanel={activePanel} 
+                    setActivePanel={setActivePanel}
+                    isOpen={sidebarOpen}
+                    setIsOpen={setSidebarOpen}
+                  />
+                  
+                  <main className="flex-1 overflow-y-auto p-4 sm:p-6">
+                    {renderActivePanel()}
+                  </main>
+                </div>
+                
+                <DebugPanel />
+              </div>
+            );
+          }
+          EOL
+
+          # Update DebugPanel to work with client-side Supabase
+          cat > web/components/DebugPanel.js << 'EOL'
+          // web/components/DebugPanel.js
+          import { useState } from 'react';
+          import { getSupabaseClient } from '../utils/supabaseClient';
+
+          export default function DebugPanel() {
+            const [isOpen, setIsOpen] = useState(false);
+            const [testResult, setTestResult] = useState(null);
+            const [isLoading, setIsLoading] = useState(false);
+
+            const testDatabaseConnection = async () => {
+              setIsLoading(true);
+              try {
+                const supabase = getSupabaseClient();
+                
+                if (!supabase) {
+                  throw new Error('Supabase client not initialized. Check your environment variables.');
+                }
+                
+                // Test connection to Supabase by trying to fetch a single row
+                const { data, error } = await supabase
+                  .from('workout_stats')
+                  .select('*')
+                  .limit(1);
+                
+                if (error) {
+                  throw new Error(`Database connection error: ${error.message}`);
+                }
+                
+                setTestResult({
+                  success: true,
+                  message: `Successfully connected to Supabase. Data received: ${JSON.stringify(data)}`
+                });
+              } catch (error) {
+                console.error('Database connection test failed:', error);
+                setTestResult({
+                  success: false,
+                  message: error.message
+                });
+              } finally {
+                setIsLoading(false);
+              }
+            };
+
+            const checkEnvironmentVariables = () => {
+              const variables = {
+                NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
+                NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+              };
+              
+              const missingVars = Object.keys(variables).filter(key => !variables[key]);
+              
+              if (missingVars.length === 0) {
+                setTestResult({
+                  success: true,
+                  message: 'All environment variables are set.'
+                });
+              } else {
+                setTestResult({
+                  success: false,
+                  message: `Missing environment variables: ${missingVars.join(', ')}`
+                });
+              }
+            };
+
+            if (!isOpen) {
+              return (
+                <button 
+                  onClick={() => setIsOpen(true)}
+                  className="fixed bottom-4 right-4 bg-blue-600 text-white p-2 rounded-full shadow-lg"
+                  title="Open Debug Panel"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </button>
+              );
+            }
+
+            return (
+              <div className="fixed bottom-4 right-4 bg-gray-800 p-4 rounded-lg shadow-lg border border-gray-700 w-full max-w-md z-50">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-bold text-white">Dashboard Debug Panel</h3>
+                  <button 
+                    onClick={() => setIsOpen(false)}
+                    className="text-gray-400 hover:text-white"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                
+                <div className="space-y-4">
+                  <div>
+                    <button
+                      onClick={testDatabaseConnection}
+                      disabled={isLoading}
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded disabled:opacity-50"
+                    >
+                      {isLoading ? 'Testing Connection...' : 'Test Database Connection'}
+                    </button>
+                  </div>
+                  
+                  <div>
+                    <button
+                      onClick={checkEnvironmentVariables}
+                      className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded"
+                    >
+                      Check Environment Variables
+                    </button>
+                  </div>
+                  
+                  {testResult && (
+                    <div className={`p-3 rounded ${testResult.success ? 'bg-green-900/30 border border-green-500' : 'bg-red-900/30 border border-red-500'}`}>
+                      <h4 className={`font-medium ${testResult.success ? 'text-green-400' : 'text-red-400'}`}>
+                        {testResult.success ? 'Success' : 'Error'}
+                      </h4>
+                      <pre className="text-sm whitespace-pre-wrap mt-1 text-gray-300">
+                        {testResult.message}
+                      </pre>
+                    </div>
+                  )}
+                  
+                  <div className="text-sm text-gray-400">
+                    <p>This panel is for development and debugging purposes only.</p>
+                  </div>
+                </div>
+              </div>
+            );
+          }
+          EOL
+          echo "Updated component files to use client-side Supabase queries"
+      - name: Build Next.js app
+        run: |
+          cd web
+          npm run build
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./web/out
+      - name: Upload debug logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-logs
+          path: '*.log'
+          if-no-files-found: ignore
