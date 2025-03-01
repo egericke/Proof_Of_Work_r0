@@ -31,8 +31,10 @@ const getSupabaseClient = () => {
 };
 
 export default function DashboardLayout() {
+  // Add client-side rendering guard
+  const [isMounted, setIsMounted] = useState(false);
   const [supabase, setSupabase] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false); // Start with false to avoid long loading state
   const [loadError, setLoadError] = useState(null);
   const [activePanel, setActivePanel] = useState('overview');
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -44,6 +46,12 @@ export default function DashboardLayout() {
     name: 'Dashboard User',
     avatar: '/avatar-placeholder.png'
   });
+
+  // Force client-side render
+  useEffect(() => {
+    setIsMounted(true);
+    console.log("DashboardLayout mounted");
+  }, []);
 
   // Initialize Supabase client
   useEffect(() => {
@@ -57,23 +65,17 @@ export default function DashboardLayout() {
         }
         
         setSupabase(supabaseClient);
-        
-        // Simulate a loading state for better UX
-        setTimeout(() => {
-          setIsLoading(false);
-        }, 1000);
+        console.log("Supabase client initialized successfully");
       } catch (error) {
         console.error('Error initializing Supabase client:', error);
         setLoadError(error.message);
-        // Still stop loading after error to prevent being stuck on loading screen
-        setTimeout(() => {
-          setIsLoading(false);
-        }, 1000);
       }
     };
     
-    initSupabase();
-  }, []);
+    if (isMounted) {
+      initSupabase();
+    }
+  }, [isMounted]);
 
   // Toggle sidebar for mobile
   const toggleSidebar = () => {
@@ -113,7 +115,8 @@ export default function DashboardLayout() {
     }
   };
 
-  if (isLoading) {
+  // Client-side rendering guard
+  if (!isMounted) {
     return <LoadingOverlay />;
   }
 
