@@ -1,83 +1,117 @@
 // web/components/panels/HabitsPanel.js
 import { useState, useEffect } from 'react';
+import HabitCalendar from '../ui/HabitCalendar';
 import { getSupabaseClient } from '../../utils/supabaseClient';
-import { fallbackHabits } from '../../utils/fallbackData';
+
+// Fallback data for habits
+const fallbackHabits = [
+  { habit_date: '2023-01-10', habit_name: 'Meditation', completed: true },
+  { habit_date: '2023-01-10', habit_name: 'Reading', completed: true },
+  { habit_date: '2023-01-10', habit_name: 'Exercise', completed: false },
+];
 
 export default function HabitsPanel({ dateRange }) {
-  const [habits, setHabits] = useState([]); // Always initialize as array
+  // Initialize state as an empty array
+  const [habits, setHabits] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Format dates for Supabase query
+  // Utility to format dates for Supabase queries
   const formatDateParam = (date) => date.toISOString().split('T')[0];
 
   useEffect(() => {
-    async function fetchHabits() {
+    async function fetchData() {
       setIsLoading(true);
       try {
+        const startDateStr = formatDateParam(dateRange.startDate);
+        const endDateStr = formatDateParam(dateRange.endDate);
         const supabase = getSupabaseClient();
-        let habitsData = fallbackHabits.habits; // Default to fallback
 
+        // Default to fallback data
+        let habitsData = fallbackHabits;
+
+        // Fetch from Supabase if client is available
         if (supabase) {
-          const startDateStr = formatDateParam(dateRange.startDate);
-          const endDateStr = formatDateParam(dateRange.endDate);
-
-          const { data, error } = await supabase
+          const { data: fetchedData, error } = await supabase
             .from('habit_tracking')
             .select('*')
             .gte('habit_date', startDateStr)
             .lte('habit_date', endDateStr)
-            .order('habit_date', { ascending: false });
+            .order('habit_date', { ascending: true });
 
           if (error) throw error;
-          habitsData = data || []; // Ensure array even if no data
+          // Use fetched data if available and non-empty
+          if (fetchedData?.length > 0) habitsData = fetchedData;
         }
 
         setHabits(habitsData);
       } catch (error) {
-        console.error('Error fetching habits:', error);
-        setHabits(fallbackHabits.habits); // Fallback on error
+        console.error('Error fetching habits data:', error);
+        // Fallback to static data on error
+        setHabits(fallbackHabits);
       } finally {
         setIsLoading(false);
       }
     }
-
-    fetchHabits();
+    fetchData();
   }, [dateRange]);
+
+  // Group habits by date for calendar view
+  const habitsByDate = (habits || []).reduce((acc, habit) => {
+    if (!acc[habit.habit_date]) acc[habit.habit_date] = [];
+    acc[habit.habit_date].push(habit);
+    return acc;
+  }, {});
+
+  // Debug log to inspect data before rendering
+  console.log('Rendering HabitsPanel with habits:', habits);
 
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-orbitron text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500">
         Habits Tracker
       </h2>
-
-      {isLoading ? (
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-        </div>
-      ) : (
-        <div className="bg-gray-800 bg-opacity-60 rounded-lg border border-blue-500/20 p-4 backdrop-blur-sm">
-          <h3 className="text-lg font-medium text-blue-300 mb-4">Recent Habits</h3>
-          {(habits || []).length > 0 ? (
-            <ul className="space-y-2">
-              {(habits || []).map((habit, index) => (
-                <li
-                  key={index}
-                  className="flex justify-between items-center p-2 bg-gray-700 rounded"
-                >
-                  <span>{habit.habit_name}</span>
-                  <span
-                    className={habit.completed ? 'text-green-400' : 'text-red-400'}
-                  >
-                    {habit.completed ? '✓' : '✗'}
-                  </span>
-                </li>
+      {/* Habit Calendar */}
+      <div className="bg-gray-800 bg-opacity-60 rounded-lg border border-blue-500/20 p-4 backdrop-blur-sm">
+        <h3 className="text-lg font-medium text-blue-300 mb-4">Habit Completion Calendar</h3>
+        <HabitCalendar habitsByDate={habitsByDate} isLoading={isLoading} />
+      </div>
+      {/* Recent Habits */}
+      <div className="bg-gray-800 bg-opacity-60 rounded-lg border border-blue-500/20 p-4 backdrop-blur-sm">
+        <h3 className="text-lg font-medium text-blue-300 mb-4">Recent Habits</h3>
+        {isLoading ? (
+          <div className="animate-pulse space-y-4">
+            {Array(3)
+              .fill(0)
+              .map((_, i) => (
+                <div key={i} className="h-16 bg-gray-700 rounded"></div>
               ))}
-            </ul>
-          ) : (
-            <p className="text-gray-400">No habits recorded in this date range.</p>
-          )}
-        </div>
-      )}
+          </div>
+        ) : (habits || []).length > 0 ? (
+          (habits || [])
+            .slice(0, 5)
+            .map((habit, index) => (
+              <div
+                key={index}
+                className="flex justify-between items-center p-2 bg-gray-700 rounded mb-2"
+              >
+                <span>{habit.habit_name}</span>
+                <span className={habit.completed ? 'text-green-400' : 'text-red-400'}>
+                  {habit.completed ? 'Completed' : 'Missed'}
+                </span>
+              </div>
+            ))
+        ) : (
+          <div className="text-gray-400 text-center py-4">No habits found.</div>
+        )}
+      </div>
     </div>
   );
 }
+
+// Default props to ensure graceful handling if dateRange is undefined
+HabitsPanel.defaultProps = {
+  dateRange: {
+    startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // Default to last 7 days
+    endDate: new Date(),
+  },
+};
