@@ -22,27 +22,22 @@ export default function LoadingOverlay() {
     }
   }, [loadingTime]);
   
-  // Force dashboard to render after 15 seconds regardless of loading state
+  // Force dashboard to render after 15 seconds - REFACTORED to avoid script injection
   useEffect(() => {
     if (loadingTime >= 15 && typeof window !== 'undefined') {
-      // Create and append a script to force rendering
-      const script = document.createElement('script');
-      script.innerHTML = `
-        // Force the dashboard to render by bypassing the loading check
-        try {
-          // Find any loading state variable and set it to false
-          for (const key in window) {
-            if (key.startsWith('__NEXT_DATA__')) {
-              console.log('Attempting emergency render bypass');
-              // Force a refresh without the loading overlay
-              window.location.href = '/diagnostic';
-            }
+      try {
+        // Find any loading state variable and set it to false
+        for (const key in window) {
+          if (key.startsWith('__NEXT_DATA__')) {
+            console.log('Attempting emergency render bypass');
+            // Force a refresh without the loading overlay
+            window.location.href = '/diagnostic';
+            break;
           }
-        } catch (e) {
-          console.error('Error in emergency render bypass:', e);
         }
-      `;
-      document.body.appendChild(script);
+      } catch (e) {
+        console.error('Error in emergency render bypass:', e);
+      }
     }
   }, [loadingTime]);
 
