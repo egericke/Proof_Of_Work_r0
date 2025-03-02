@@ -4,34 +4,36 @@ import React from 'react';
 export default function ActivityFeed({ activities = [], isLoading }) {
   if (isLoading) {
     return (
-      <div className="bg-gray-800 bg-opacity-60 rounded-lg border border-blue-500/20 p-4 backdrop-blur-sm">
-        <h3 className="text-lg font-medium text-blue-300 mb-4">Recent Activity</h3>
-        <div className="animate-pulse space-y-4">
-          {Array(3)
-            .fill(0)
-            .map((_, i) => (
-              <div key={i} className="h-12 bg-gray-700 rounded"></div>
-            ))}
-        </div>
+      <div className="animate-pulse space-y-4">
+        {Array(3).fill(0).map((_, i) => (
+          <div key={i} className="h-16 bg-gray-700 rounded"></div>
+        ))}
       </div>
     );
   }
 
+  console.log('Rendering ActivityFeed with activities:', activities);
+
+  if (!activities.length) {
+    return <div className="text-gray-400 text-center py-4">No recent activities</div>;
+  }
+
   return (
-    <div className="bg-gray-800 bg-opacity-60 rounded-lg border border-blue-500/20 p-4 backdrop-blur-sm">
-      <h3 className="text-lg font-medium text-blue-300 mb-4">Recent Activity</h3>
-      {(activities || []).length > 0 ? (
-        <ul className="space-y-2">
-          {(activities || []).map((activity, index) => (
-            <li key={index} className="flex justify-between items-center p-2 bg-gray-700 rounded">
-              <span>{activity.title}</span>
-              <span className="text-gray-400 text-sm">{activity.value}</span>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="text-gray-400">No recent activities.</p>
-      )}
+    <div className="space-y-4">
+      {(activities || []).map((activity, index) => (
+        <div key={index} className="bg-gray-800 p-4 rounded-lg">
+          <div className="flex justify-between items-center">
+            <div>
+              <h4 className="text-blue-300 font-medium">{activity.title}</h4>
+              <p className="text-gray-400 text-sm">{activity.date}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-white font-medium">{activity.value}</p>
+              <p className="text-gray-400 text-sm">{activity.type}</p>
+            </div>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
