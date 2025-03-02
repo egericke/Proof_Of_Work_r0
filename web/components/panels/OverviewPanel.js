@@ -10,7 +10,7 @@ const fallbackVo2Max = { value: 42.5, trend: 1.5 };
 const fallbackActivities = [
   { type: 'workout', title: 'Morning Run', date: '2023-01-10', value: '5.20 km' },
   { type: 'focus', title: 'Deep Work', date: '2023-01-09', value: '4.5 hrs' },
-  { type: 'habit', title: 'Daily Habits', date: '2023-01-10', value: '4/5 complete' }
+  { type: 'habit', title: 'Daily Habits', date: '2023-01-10', value: '4/5 complete' },
 ];
 
 export default function OverviewPanel({ dateRange }) {
@@ -18,7 +18,7 @@ export default function OverviewPanel({ dateRange }) {
     vo2Max: { value: 0, trend: 0 },
     workouts: { value: 0, trend: 0 },
     focusHours: { value: 0, trend: 0 },
-    habitStreak: { value: 0, trend: 0 }
+    habitStreak: { value: 0, trend: 0 },
   });
   const [activityData, setActivityData] = useState({ labels: [], datasets: [] });
   const [recentActivities, setRecentActivities] = useState([]);
@@ -33,6 +33,7 @@ export default function OverviewPanel({ dateRange }) {
         const startDateStr = formatDateParam(dateRange.startDate);
         const endDateStr = formatDateParam(dateRange.endDate);
         const supabase = getSupabaseClient();
+
         let vo2MaxValue = fallbackVo2Max.value;
         let vo2MaxTrend = fallbackVo2Max.trend;
         let workoutCount = 0;
@@ -46,20 +47,24 @@ export default function OverviewPanel({ dateRange }) {
             .select('*')
             .order('test_date', { ascending: false })
             .limit(1);
-          if (vo2MaxData?.length > 0) vo2MaxValue = vo2MaxData[0].vo2max_value;
+
+          if (vo2MaxData && vo2MaxData.length > 0) {
+            vo2MaxValue = vo2MaxData[0].vo2max_value;
+          }
 
           const { data: workoutsData } = await supabase
             .from('workout_stats')
             .select('*')
             .gte('date', startDateStr)
             .lte('date', endDateStr);
+
           if (workoutsData) {
             workoutCount = workoutsData.length;
-            const workoutActivities = workoutsData.slice(0, 3).map(workout => ({
+            const workoutActivities = (workoutsData || []).slice(0, 3).map((workout) => ({
               type: 'workout',
               title: workout.title || workout.activity_type,
               date: new Date(workout.date).toLocaleDateString(),
-              value: `${(workout.distance / 1000).toFixed(2)} km`
+              value: `${(workout.distance / 1000).toFixed(2)} km`,
             }));
             if (workoutActivities.length > 0) {
               recentItems = [...workoutActivities, ...recentItems.slice(0, 3 - workoutActivities.length)];
@@ -71,9 +76,10 @@ export default function OverviewPanel({ dateRange }) {
             .select('*')
             .gte('date', startDateStr)
             .lte('date', endDateStr);
+
           if (togglData) {
-            deepWorkHours = togglData
-              .filter(entry => entry.bucket === 'Deep Work')
+            deepWorkHours = (togglData || [])
+              .filter((entry) => entry.bucket === 'Deep Work')
               .reduce((sum, entry) => sum + entry.hours, 0);
           }
 
@@ -82,19 +88,19 @@ export default function OverviewPanel({ dateRange }) {
             .select('*')
             .gte('habit_date', startDateStr)
             .lte('habit_date', endDateStr);
+
           if (habitsData) {
             const habitsByDate = {};
-            habitsData.forEach(habit => {
+            (habitsData || []).forEach((habit) => {
               if (!habitsByDate[habit.habit_date]) {
                 habitsByDate[habit.habit_date] = { total: 0, completed: 0 };
               }
               habitsByDate[habit.habit_date].total++;
               if (habit.completed) habitsByDate[habit.habit_date].completed++;
             });
-            habitStreakCount = Object.keys(habitsByDate).filter(date => {
-              const dayData = habitsByDate[date];
-              return dayData.completed / dayData.total >= 0.8;
-            }).length;
+            habitStreakCount = Object.keys(habitsByDate).filter(
+              (date) => habitsByDate[date].completed / habitsByDate[date].total >= 0.8
+            ).length;
           }
         }
 
@@ -115,15 +121,15 @@ export default function OverviewPanel({ dateRange }) {
               borderColor: 'rgba(236, 72, 153, 0.8)',
               backgroundColor: 'rgba(236, 72, 153, 0.2)',
               yAxisID: 'y-axis-2',
-            }
-          ]
+            },
+          ],
         };
 
         setStats({
           vo2Max: { value: vo2MaxValue, trend: vo2MaxTrend },
           workouts: { value: workoutCount, trend: 0 },
           focusHours: { value: deepWorkHours.toFixed(1), trend: 0 },
-          habitStreak: { value: habitStreakCount, trend: 0 }
+          habitStreak: { value: habitStreakCount, trend: 0 },
         });
         setActivityData(chartData);
         setRecentActivities(recentItems);
@@ -134,6 +140,7 @@ export default function OverviewPanel({ dateRange }) {
         setIsLoading(false);
       }
     }
+
     fetchData();
   }, [dateRange]);
 
@@ -142,6 +149,7 @@ export default function OverviewPanel({ dateRange }) {
       <h2 className="text-2xl font-orbitron text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500">
         Dashboard Overview
       </h2>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard
           title="VO₂ Max"
@@ -180,6 +188,7 @@ export default function OverviewPanel({ dateRange }) {
           color="amber"
         />
       </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 bg-gray-800 bg-opacity-60 rounded-lg border border-blue-500/20 p-4 backdrop-blur-sm">
           <h3 className="text-lg font-medium text-blue-300 mb-4">Weekly Activity</h3>
@@ -196,31 +205,58 @@ export default function OverviewPanel({ dateRange }) {
                   title: { display: true, text: 'Workouts' },
                   suggestedMin: 0,
                   suggestedMax: 2,
-                  ticks: { stepSize: 1 }
+                  ticks: { stepSize: 1 },
                 },
                 'y-axis-2': {
                   type: 'linear',
                   position: 'right',
                   title: { display: true, text: 'Hours' },
                   suggestedMin: 0,
-                  grid: { drawOnChartArea: false }
-                }
-              }
+                  grid: { drawOnChartArea: false },
+                },
+              },
             }}
           />
         </div>
+
         <div className="flex flex-col gap-6">
           <QuoteCard
             quote="Consistency over intensity. Those who show up every day outperform those who show up occasionally with maximum effort."
             author="James Clear"
           />
-          <ActivityFeed
-            activities={recentActivities || []} // Default to empty array
-            isLoading={isLoading}
-          />
+          <ActivityFeed activities={recentActivities || []} isLoading={isLoading} />
         </div>
       </div>
-      {/* Rest of the JSX remains unchanged */}
+
+      <div className="bg-gray-800 bg-opacity-60 rounded-lg border border-blue-500/20 p-6 backdrop-blur-sm">
+        <h3 className="text-lg font-medium text-blue-300 mb-4">Dashboard Inspiration</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="p-4 rounded-lg bg-gray-800/50 border border-blue-500/10">
+            <h4 className="text-blue-300 font-medium mb-2">Naval Ravikant</h4>
+            <p className="text-gray-300 text-sm">
+              Prioritizing health, learning, and deep work as foundational elements for personal growth and wealth creation.
+            </p>
+          </div>
+          <div className="p-4 rounded-lg bg-gray-800/50 border border-purple-500/10">
+            <h4 className="text-purple-300 font-medium mb-2">Peter Attia</h4>
+            <p className="text-gray-300 text-sm">
+              Tracking fitness metrics like VO2 max, strength, and other longevity indicators to optimize health over the long term.
+            </p>
+          </div>
+          <div className="p-4 rounded-lg bg-gray-800/50 border border-green-500/10">
+            <h4 className="text-green-300 font-medium mb-2">Balaji Srinivasan</h4>
+            <p className="text-gray-300 text-sm">
+              Public accountability through "Proof of Workout" concept, encouraging transparency in fitness and productivity efforts.
+            </p>
+          </div>
+          <div className="p-4 rounded-lg bg-gray-800/50 border border-amber-500/10">
+            <h4 className="text-amber-300 font-medium mb-2">James Clear</h4>
+            <p className="text-gray-300 text-sm">
+              Emphasizing small, consistent habits to drive meaningful change. Making habit data public reinforces accountability.
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
