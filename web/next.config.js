@@ -1,8 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  
-  // Add CSP headers configuration with unsafe-eval for Chart.js
+
+  // Add CSP headers configuration
   async headers() {
     return [
       {
@@ -17,15 +17,16 @@ const nextConfig = {
     ];
   },
   
-  // Configure webpack to handle Chart.js properly
-  webpack: (config, { isServer }) => {
-    if (!isServer) {
-      // Ensure Chart.js is handled correctly
-      config.resolve.alias = {
-        ...config.resolve.alias,
-        'chart.js/auto': 'chart.js/auto/auto.js',
-      };
-    }
+  // Configure webpack for Vercel compatibility
+  webpack: (config) => {
+    // Make sure Chart.js is handled correctly
+    // This prevents issues with dynamic imports
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      fs: false,
+      net: false,
+      tls: false,
+    };
     
     return config;
   }
