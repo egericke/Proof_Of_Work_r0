@@ -22,10 +22,12 @@ export default function DashboardLayout() {
   });
   const [userData, setUserData] = useState({ name: 'Dashboard User', avatar: '/avatar-placeholder.png' });
 
+  // Initialize Supabase client
+  const supabase = getSupabaseClient();
+
   useEffect(() => {
     const initApp = async () => {
       try {
-        const supabase = getSupabaseClient();
         if (!supabase) console.warn('Supabase client could not be initialized. Using fallback data.');
         setTimeout(() => setIsLoading(false), 1000);
       } catch (error) {
@@ -35,7 +37,7 @@ export default function DashboardLayout() {
       }
     };
     initApp();
-  }, []);
+  }, [supabase]); // Add supabase as a dependency
 
   const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
 
@@ -45,7 +47,10 @@ export default function DashboardLayout() {
         <div className="flex flex-col items-center justify-center h-full p-8">
           <div className="text-xl text-red-400 mb-4">Error loading dashboard</div>
           <p className="text-gray-400 max-w-md text-center mb-4">{loadError}</p>
-          <button onClick={() => window.location.reload()} className="px-4 py-2 bg-blue-600 rounded text-white hover:bg-blue-700 transition-colors">
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-blue-600 rounded text-white hover:bg-blue-700 transition-colors"
+          >
             Retry
           </button>
         </div>
@@ -54,15 +59,35 @@ export default function DashboardLayout() {
 
     switch (activePanel) {
       case 'overview':
-        return <ErrorBoundary componentName="OverviewPanel"><OverviewPanel dateRange={dateRange} /></ErrorBoundary>;
+        return (
+          <ErrorBoundary componentName="OverviewPanel">
+            <OverviewPanel dateRange={dateRange} />
+          </ErrorBoundary>
+        );
       case 'fitness':
-        return <ErrorBoundary componentName="FitnessPanel"><FitnessPanel dateRange={dateRange} /></ErrorBoundary>;
+        return (
+          <ErrorBoundary componentName="FitnessPanel">
+            <FitnessPanel dateRange={dateRange} />
+          </ErrorBoundary>
+        );
       case 'time':
-        return <ErrorBoundary componentName="TimePanel"><TimePanel dateRange={dateRange} /></ErrorBoundary>;
+        return (
+          <ErrorBoundary componentName="TimePanel">
+            <TimePanel dateRange={dateRange} />
+          </ErrorBoundary>
+        );
       case 'habits':
-        return <ErrorBoundary componentName="HabitsPanel"><HabitsPanel dateRange={dateRange} /></ErrorBoundary>;
+        return (
+          <ErrorBoundary componentName="HabitsPanel">
+            <HabitsPanel dateRange={dateRange} />
+          </ErrorBoundary>
+        );
       default:
-        return <ErrorBoundary componentName="OverviewPanel"><OverviewPanel dateRange={dateRange} /></ErrorBoundary>;
+        return (
+          <ErrorBoundary componentName="OverviewPanel">
+            <OverviewPanel dateRange={dateRange} />
+          </ErrorBoundary>
+        );
     }
   };
 
@@ -70,15 +95,28 @@ export default function DashboardLayout() {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-gradient-to-br from-gray-900 via-gray-900 to-gray-800">
-      <DashboardHeader userData={userData} dateRange={dateRange} setDateRange={setDateRange} toggleSidebar={toggleSidebar} />
+      <DashboardHeader
+        userData={userData}
+        dateRange={dateRange}
+        setDateRange={setDateRange}
+        toggleSidebar={toggleSidebar}
+      />
       <div className="flex flex-1 overflow-hidden">
         {sidebarOpen && (
-          <div className="fixed inset-0 bg-gray-900 bg-opacity-50 z-20 md:hidden" onClick={() => setSidebarOpen(false)}></div>
+          <div
+            className="fixed inset-0 bg-gray-900 bg-opacity-50 z-20 md:hidden"
+            onClick={() => setSidebarOpen(false)}
+          ></div>
         )}
-        <DashboardSidebar activePanel={activePanel} setActivePanel={setActivePanel} isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
+        <DashboardSidebar
+          activePanel={activePanel}
+          setActivePanel={setActivePanel}
+          isOpen={sidebarOpen}
+          setIsOpen={setSidebarOpen}
+        />
         <main className="flex-1 overflow-y-auto p-4 sm:p-6">{renderActivePanel()}</main>
       </div>
-      <DebugPanel />
+      <DebugPanel supabase={supabase} />
     </div>
   );
 }
