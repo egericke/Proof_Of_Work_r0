@@ -36,7 +36,7 @@ const fallbackVo2MaxHistory = [
   { test_date: '2023-01-25', vo2max_value: 44.1 }
 ];
 
-export default function FitnessPanel({ supabase, dateRange }) {
+export default function FitnessPanel({ dateRange }) {
   const [workouts, setWorkouts] = useState([]);
   const [vo2MaxHistory, setVo2MaxHistory] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -49,7 +49,7 @@ export default function FitnessPanel({ supabase, dateRange }) {
 
   // Format dates for data fetching
   const formatDateParam = (date) => {
-    return date.toISOString().split('T')[0];
+    return date ? date.toISOString().split('T')[0] : '';
   };
 
   // Fetch fitness data directly from Supabase
@@ -59,8 +59,16 @@ export default function FitnessPanel({ supabase, dateRange }) {
       
       try {
         // Format date range
-        const startDateStr = formatDateParam(dateRange.startDate);
-        const endDateStr = formatDateParam(dateRange.endDate);
+        const startDateStr = formatDateParam(dateRange?.startDate);
+        const endDateStr = formatDateParam(dateRange?.endDate);
+        
+        if (!startDateStr || !endDateStr) {
+          console.warn('Invalid date range provided');
+          setWorkouts(fallbackWorkouts);
+          setVo2MaxHistory(fallbackVo2MaxHistory);
+          setIsLoading(false);
+          return;
+        }
         
         // Get Supabase client
         const supabase = getSupabaseClient();
@@ -70,37 +78,45 @@ export default function FitnessPanel({ supabase, dateRange }) {
         let vo2MaxData = fallbackVo2MaxHistory;
         
         if (supabase) {
-          // Fetch workout stats
-          const { data: workoutsFetched, error: workoutsError } = await supabase
-            .from('workout_stats')
-            .select('*')
-            .gte('date', startDateStr)
-            .lte('date', endDateStr)
-            .order('date', { ascending: false });
-          
-          if (!workoutsError && workoutsFetched && workoutsFetched.length > 0) {
-            workoutsData = workoutsFetched;
-          } else if (workoutsError) {
-            console.error('Error fetching workouts:', workoutsError);
+          try {
+            // Fetch workout stats
+            const { data: workoutsFetched, error: workoutsError } = await supabase
+              .from('workout_stats')
+              .select('*')
+              .gte('date', startDateStr)
+              .lte('date', endDateStr)
+              .order('date', { ascending: false });
+            
+            if (!workoutsError && workoutsFetched && workoutsFetched.length > 0) {
+              workoutsData = workoutsFetched;
+            } else if (workoutsError) {
+              console.error('Error fetching workouts:', workoutsError);
+            }
+          } catch (workoutErr) {
+            console.error('Failed to fetch workout data:', workoutErr);
           }
           
-          // Fetch VO2 Max history
-          const { data: vo2MaxFetched, error: vo2MaxError } = await supabase
-            .from('vo2max_tests')
-            .select('*')
-            .gte('test_date', startDateStr)
-            .lte('test_date', endDateStr)
-            .order('test_date', { ascending: true });
-          
-          if (!vo2MaxError && vo2MaxFetched && vo2MaxFetched.length > 0) {
-            vo2MaxData = vo2MaxFetched;
-          } else if (vo2MaxError) {
-            console.error('Error fetching VO2 Max data:', vo2MaxError);
+          try {
+            // Fetch VO2 Max history
+            const { data: vo2MaxFetched, error: vo2MaxError } = await supabase
+              .from('vo2max_tests')
+              .select('*')
+              .gte('test_date', startDateStr)
+              .lte('test_date', endDateStr)
+              .order('test_date', { ascending: true });
+            
+            if (!vo2MaxError && vo2MaxFetched && vo2MaxFetched.length > 0) {
+              vo2MaxData = vo2MaxFetched;
+            } else if (vo2MaxError) {
+              console.error('Error fetching VO2 Max data:', vo2MaxError);
+            }
+          } catch (vo2Err) {
+            console.error('Failed to fetch VO2 max data:', vo2Err);
           }
         }
         
         // Process workout data
-        setWorkouts(workoutsData);
+        setWorkouts(workoutsData || []);
         
         // Calculate workout stats
         const totalDistance = workoutsData.reduce((sum, w) => sum + (w.distance || 0), 0);
@@ -120,7 +136,7 @@ export default function FitnessPanel({ supabase, dateRange }) {
         });
         
         // Process VO2 Max data
-        setVo2MaxHistory(vo2MaxData);
+        setVo2MaxHistory(vo2MaxData || []);
         
       } catch (error) {
         console.error('Error fetching fitness data:', error);
@@ -135,13 +151,13 @@ export default function FitnessPanel({ supabase, dateRange }) {
     fetchData();
   }, [dateRange]);
 
-  // VO2 Max Chart Data
+  // VO2 Max Chart Data - with defensive programming
   const vo2MaxChartData = {
-    labels: vo2MaxHistory.map(d => d.test_date),
+    labels: Array.isArray(vo2MaxHistory) ? vo2MaxHistory.map(d => d.test_date || '') : [],
     datasets: [
       {
         label: 'VO₂ Max',
-        data: vo2MaxHistory.map(d => d.vo2max_value),
+        data: Array.isArray(vo2MaxHistory) ? vo2MaxHistory.map(d => d.vo2max_value || 0) : [],
         borderColor: 'rgba(139, 92, 246, 0.8)',
         backgroundColor: 'rgba(139, 92, 246, 0.2)',
         tension: 0.3,
@@ -150,18 +166,18 @@ export default function FitnessPanel({ supabase, dateRange }) {
     ]
   };
   
-  // Workout activity by type
-  const activityTypes = workouts.reduce((acc, workout) => {
-    const type = workout.activity_type || 'unknown';
+  // Workout activity by type - with defensive programming
+  const activityTypes = (Array.isArray(workouts) ? workouts : []).reduce((acc, workout) => {
+    const type = workout?.activity_type || 'unknown';
     acc[type] = (acc[type] || 0) + 1;
     return acc;
   }, {});
   
   const activityChartData = {
-    labels: Object.keys(activityTypes),
+    labels: Object.keys(activityTypes) || [],
     datasets: [
       {
-        data: Object.values(activityTypes),
+        data: Object.values(activityTypes) || [],
         backgroundColor: [
           'rgba(59, 130, 246, 0.8)',
           'rgba(16, 185, 129, 0.8)',
@@ -200,19 +216,28 @@ export default function FitnessPanel({ supabase, dateRange }) {
       }
       
       // Refresh VO2 Max data
-      const { data: refreshData, error: refreshError } = await supabase
-        .from('vo2max_tests')
-        .select('*')
-        .gte('test_date', formatDateParam(dateRange.startDate))
-        .lte('test_date', formatDateParam(dateRange.endDate))
-        .order('test_date', { ascending: true });
-      
-      if (refreshError) {
-        throw refreshError;
-      }
-      
-      if (refreshData) {
-        setVo2MaxHistory(refreshData);
+      try {
+        const startDateStr = formatDateParam(dateRange?.startDate);
+        const endDateStr = formatDateParam(dateRange?.endDate);
+        
+        if (startDateStr && endDateStr) {
+          const { data: refreshData, error: refreshError } = await supabase
+            .from('vo2max_tests')
+            .select('*')
+            .gte('test_date', startDateStr)
+            .lte('test_date', endDateStr)
+            .order('test_date', { ascending: true });
+          
+          if (refreshError) {
+            throw refreshError;
+          }
+          
+          if (refreshData) {
+            setVo2MaxHistory(refreshData);
+          }
+        }
+      } catch (refreshErr) {
+        console.error('Error refreshing VO2 Max data:', refreshErr);
       }
       
       return true;
@@ -221,6 +246,27 @@ export default function FitnessPanel({ supabase, dateRange }) {
       return false;
     }
   };
+  
+  // Helper to get min/max values safely
+  const getMinMaxValues = (arr, key, defaultMin = 0, defaultMax = 100) => {
+    if (!Array.isArray(arr) || arr.length === 0) {
+      return { min: defaultMin, max: defaultMax };
+    }
+    
+    const values = arr.map(item => item[key] || 0).filter(val => !isNaN(val));
+    
+    if (values.length === 0) {
+      return { min: defaultMin, max: defaultMax };
+    }
+    
+    return {
+      min: Math.max(0, Math.min(...values) - 5),
+      max: Math.max(...values) + 5
+    };
+  };
+  
+  // Get min/max values for VO2 Max chart
+  const vo2MaxRange = getMinMaxValues(vo2MaxHistory, 'vo2max_value', 30, 60);
   
   return (
     <div className="space-y-6">
@@ -258,8 +304,8 @@ export default function FitnessPanel({ supabase, dateRange }) {
             options={{
               scales: {
                 y: {
-                  min: Math.max(0, Math.min(...vo2MaxHistory.map(d => d.vo2max_value || 0)) - 5),
-                  max: Math.max(...vo2MaxHistory.map(d => d.vo2max_value || 0)) + 5
+                  min: vo2MaxRange.min,
+                  max: vo2MaxRange.max
                 }
               }
             }}
@@ -272,7 +318,7 @@ export default function FitnessPanel({ supabase, dateRange }) {
             data={activityChartData} 
             type="doughnut" 
             height={250}
-            isLoading={isLoading || workouts.length === 0}
+            isLoading={isLoading || Object.keys(activityTypes).length === 0}
             options={{
               plugins: {
                 legend: {
