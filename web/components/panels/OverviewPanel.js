@@ -1,4 +1,4 @@
-// web/components/panels/OverviewPanel.js
+// web/components/panels/OverviewPanel.js - Fixed version
 import { useState, useEffect } from 'react';
 import StatsCard from '../ui/StatsCard';
 import DataChart from '../ui/DataChart';
@@ -18,114 +18,207 @@ export default function OverviewPanel({ supabase, dateRange }) {
   });
   const [recentActivities, setRecentActivities] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Format dates for API calls
+  // Format dates for API calls - with error handling
   const formatDateParam = (date) => {
-    return date.toISOString().split('T')[0];
+    try {
+      if (!date || !(date instanceof Date) || isNaN(date.getTime())) {
+        throw new Error("Invalid date object");
+      }
+      return date.toISOString().split('T')[0];
+    } catch (err) {
+      console.error("Date formatting error:", err);
+      return new Date().toISOString().split('T')[0]; // Return today as fallback
+    }
   };
 
   // Fetch data from APIs
   useEffect(() => {
     async function fetchData() {
       setIsLoading(true);
+      setError(null);
       
       try {
+        // Validate inputs
+        if (!dateRange || !dateRange.startDate || !dateRange.endDate) {
+          throw new Error("Invalid date range");
+        }
+        
         // Format date range for API calls
         const startDateStr = formatDateParam(dateRange.startDate);
         const endDateStr = formatDateParam(dateRange.endDate);
         
-        // Fetch VO2 Max data
-        const vo2MaxResponse = await fetch(`/api/vo2max?latest=true`);
-        const vo2MaxData = await vo2MaxResponse.json();
+        // Initialize response variables with safe defaults
+        let vo2MaxData = { latest: null, trend: 0 };
+        let workoutsData = { data: [] };
+        let togglData = { raw: [] };
+        let habitsData = { habits: [], summary: { habitsByDate: {} } };
         
-        // Fetch workout stats
-        const workoutsResponse = await fetch(`/api/workouts?start_date=${startDateStr}&end_date=${endDateStr}`);
-        const workoutsData = await workoutsResponse.json();
+        try {
+          // Fetch VO2 Max data
+          const vo2MaxResponse = await fetch(`/api/vo2max?latest=true`);
+          if (vo2MaxResponse.ok) {
+            vo2MaxData = await vo2MaxResponse.json();
+          } else {
+            console.error('VO2 Max API error:', vo2MaxResponse.statusText);
+          }
+        } catch (vo2Error) {
+          console.error('VO2 Max fetch error:', vo2Error);
+        }
         
-        // Fetch Toggl data
-        const togglResponse = await fetch(`/api/toggl?start_date=${startDateStr}&end_date=${endDateStr}`);
-        const togglData = await togglResponse.json();
+        try {
+          // Fetch workout stats
+          const workoutsResponse = await fetch(`/api/workouts?start_date=${startDateStr}&end_date=${endDateStr}`);
+          if (workoutsResponse.ok) {
+            workoutsData = await workoutsResponse.json();
+          } else {
+            console.error('Workouts API error:', workoutsResponse.statusText);
+          }
+        } catch (workoutsError) {
+          console.error('Workouts fetch error:', workoutsError);
+        }
         
-        // Fetch habits data
-        const habitsResponse = await fetch(`/api/habits?start_date=${startDateStr}&end_date=${endDateStr}`);
-        const habitsData = await habitsResponse.json();
+        try {
+          // Fetch Toggl data
+          const togglResponse = await fetch(`/api/toggl?start_date=${startDateStr}&end_date=${endDateStr}`);
+          if (togglResponse.ok) {
+            togglData = await togglResponse.json();
+          } else {
+            console.error('Toggl API error:', togglResponse.statusText);
+          }
+        } catch (togglError) {
+          console.error('Toggl fetch error:', togglError);
+        }
+        
+        try {
+          // Fetch habits data
+          const habitsResponse = await fetch(`/api/habits?start_date=${startDateStr}&end_date=${endDateStr}`);
+          if (habitsResponse.ok) {
+            habitsData = await habitsResponse.json();
+          } else {
+            console.error('Habits API error:', habitsResponse.statusText);
+          }
+        } catch (habitsError) {
+          console.error('Habits fetch error:', habitsError);
+        }
+        
+        // Ensure each response has the expected structure
+        // For safety, add default values if properties are missing
+        if (!vo2MaxData.latest) vo2MaxData.latest = { vo2max_value: 0 };
+        if (!togglData.raw) togglData.raw = [];
+        if (!workoutsData.data) workoutsData.data = [];
+        if (!habitsData.habits) habitsData.habits = [];
+        if (!habitsData.summary) habitsData.summary = { habitsByDate: {} };
+        if (!habitsData.summary.habitsByDate) habitsData.summary.habitsByDate = {};
         
         // Calculate total workouts
         const totalWorkouts = workoutsData.data?.length || 0;
         
-        // Calculate total deep work hours
-        const deepWorkHours = togglData.raw
-          ?.filter(entry => entry.bucket === 'Deep Work')
-          ?.reduce((sum, entry) => sum + entry.hours, 0) || 0;
+        // Calculate total deep work hours with safeguards
+        const deepWorkHours = Array.isArray(togglData.raw)
+          ? togglData.raw
+              .filter(entry => entry && entry.bucket === 'Deep Work')
+              .reduce((sum, entry) => sum + (entry.hours || 0), 0)
+          : 0;
         
-        // Calculate habit streak
-        // (Simplified - actual streak would need consecutive days logic)
-        const completedDaysCount = Object.keys(habitsData.summary?.habitsByDate || {})
-          .filter(date => {
-            const dayData = habitsData.summary.habitsByDate[date];
-            return dayData.completed / dayData.total >= 0.8; // 80% completion as threshold
+        // Calculate habit streak with explicit safety checks
+        let completedDaysCount = 0;
+        
+        // Safely get keys and iterate through them
+        const dateKeys = Object.keys(habitsData.summary?.habitsByDate || {});
+        if (dateKeys.length > 0) {
+          completedDaysCount = dateKeys.filter(date => {
+            const dayData = habitsData.summary?.habitsByDate?.[date];
+            if (!dayData || typeof dayData.completed !== 'number' || typeof dayData.total !== 'number' || dayData.total === 0) {
+              return false;
+            }
+            return (dayData.completed / dayData.total) >= 0.8; // 80% completion as threshold
           }).length;
+        }
         
         // Gather recent activities for feed
         const recentItems = [];
         
-        // Add recent workouts to activities
-        if (workoutsData.data && workoutsData.data.length > 0) {
+        // Add recent workouts to activities - with explicit type checking
+        if (Array.isArray(workoutsData.data) && workoutsData.data.length > 0) {
           workoutsData.data.slice(0, 3).forEach(workout => {
-            const workoutDate = new Date(workout.date);
-            recentItems.push({
-              type: 'workout',
-              title: workout.title || workout.activity_type,
-              date: workoutDate.toLocaleDateString(),
-              value: `${(workout.distance / 1000).toFixed(2)} km`
-            });
+            if (workout && workout.date) {
+              try {
+                const workoutDate = new Date(workout.date);
+                recentItems.push({
+                  type: 'workout',
+                  title: workout.title || workout.activity_type || 'Workout',
+                  date: workoutDate.toLocaleDateString(),
+                  value: `${((workout.distance || 0) / 1000).toFixed(2)} km`
+                });
+              } catch (dateError) {
+                console.error('Error parsing workout date:', dateError);
+              }
+            }
           });
         }
         
-        // Add recent toggl entries
-        if (togglData.raw && togglData.raw.length > 0) {
+        // Add recent toggl entries - with explicit checks
+        if (Array.isArray(togglData.raw) && togglData.raw.length > 0) {
           // Group toggl data by date and bucket
           const togglByDate = {};
           togglData.raw.forEach(entry => {
+            if (!entry || !entry.date || !entry.bucket) return; // Skip invalid entries
+            
             if (!togglByDate[entry.date]) {
               togglByDate[entry.date] = {};
             }
             if (!togglByDate[entry.date][entry.bucket]) {
               togglByDate[entry.date][entry.bucket] = 0;
             }
-            togglByDate[entry.date][entry.bucket] += entry.hours;
+            togglByDate[entry.date][entry.bucket] += entry.hours || 0;
           });
           
-          // Get 2 most recent dates
-          Object.keys(togglByDate)
-            .sort((a, b) => new Date(b) - new Date(a))
-            .slice(0, 2)
-            .forEach(date => {
-              // Get largest bucket for this date
-              const buckets = Object.keys(togglByDate[date]);
-              const largestBucket = buckets.reduce(
-                (max, bucket) => togglByDate[date][bucket] > togglByDate[date][max] ? bucket : max, 
-                buckets[0]
-              );
-              
-              recentItems.push({
-                type: 'focus',
-                title: largestBucket,
-                date: new Date(date).toLocaleDateString(),
-                value: `${togglByDate[date][largestBucket].toFixed(1)} hrs`
+          // Get 2 most recent dates - with validation
+          const dateKeys = Object.keys(togglByDate);
+          if (dateKeys.length > 0) {
+            dateKeys
+              .sort((a, b) => new Date(b) - new Date(a))
+              .slice(0, 2)
+              .forEach(date => {
+                // Get largest bucket for this date
+                const buckets = Object.keys(togglByDate[date] || {});
+                if (buckets.length === 0) return;
+                
+                const largestBucket = buckets.reduce(
+                  (max, bucket) => (togglByDate[date][bucket] > togglByDate[date][max]) ? bucket : max, 
+                  buckets[0]
+                );
+                
+                recentItems.push({
+                  type: 'focus',
+                  title: largestBucket,
+                  date: new Date(date).toLocaleDateString(),
+                  value: `${togglByDate[date][largestBucket].toFixed(1)} hrs`
+                });
               });
-            });
+          }
         }
         
-        // Add habits completion status
-        if (habitsData.habits && habitsData.habits.length > 0) {
-          // Get most recent habit date
-          const habitDates = [...new Set(habitsData.habits.map(h => h.habit_date))];
-          habitDates.sort((a, b) => new Date(b) - new Date(a));
+        // Add habits completion status - with validation
+        if (Array.isArray(habitsData.habits) && habitsData.habits.length > 0) {
+          // Use safe map and filter operations
+          const safeHabits = habitsData.habits.filter(h => h && h.habit_date);
+          const habitDates = [...new Set(safeHabits.map(h => h.habit_date))];
           
           if (habitDates.length > 0) {
+            // Sort dates safely
+            habitDates.sort((a, b) => {
+              try {
+                return new Date(b) - new Date(a);
+              } catch (e) {
+                return 0;
+              }
+            });
+            
             const latestDate = habitDates[0];
-            const habitsForLatestDate = habitsData.habits.filter(h => h.habit_date === latestDate);
+            const habitsForLatestDate = safeHabits.filter(h => h.habit_date === latestDate);
             const completed = habitsForLatestDate.filter(h => h.completed).length;
             const total = habitsForLatestDate.length;
             
@@ -138,18 +231,21 @@ export default function OverviewPanel({ supabase, dateRange }) {
           }
         }
         
-        // Sort activities by date (most recent first)
-        recentItems.sort((a, b) => {
-          return new Date(b.date) - new Date(a.date);
-        });
+        // Sort activities by date (most recent first) - with validation
+        if (recentItems.length > 0) {
+          recentItems.sort((a, b) => {
+            try {
+              return new Date(b.date) - new Date(a.date);
+            } catch (e) {
+              return 0;
+            }
+          });
+        }
         
         // Prepare chart data (last 7 days of workouts and focus hours)
-        // In a real implementation, you'd want to get more precise data
-        // For demo purposes, this uses a set of weekly data points
         const chartLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
         
         // Simplified dummy data for chart visual
-        // In a real implementation, you'd process the actual API response data
         const chartData = {
           labels: chartLabels,
           datasets: [
@@ -195,6 +291,7 @@ export default function OverviewPanel({ supabase, dateRange }) {
         
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
+        setError(error.message || "Failed to load dashboard data");
       } finally {
         setIsLoading(false);
       }
@@ -202,6 +299,23 @@ export default function OverviewPanel({ supabase, dateRange }) {
 
     fetchData();
   }, [supabase, dateRange]);
+
+  // Display error state if there's an error
+  if (error && !isLoading) {
+    return (
+      <div className="space-y-6">
+        <h2 className="text-2xl font-orbitron text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500">
+          Dashboard Overview
+        </h2>
+        
+        <div className="bg-red-900/20 border border-red-500 p-4 rounded-lg">
+          <h3 className="text-lg font-medium text-red-400 mb-2">Error Loading Data</h3>
+          <p className="text-white">{error}</p>
+          <p className="mt-4 text-gray-300">Try refreshing the page or check your connection.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
