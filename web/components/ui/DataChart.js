@@ -2,19 +2,11 @@
 import React, { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 
-// Import Chart.js with a simpler approach
-const ChartComponent = dynamic(
-  () => import('react-chartjs-2').then(mod => {
-    // No need for manual registration in client component
-    return {
-      Line: mod.Line,
-      Bar: mod.Bar,
-      Pie: mod.Pie,
-      Doughnut: mod.Doughnut
-    };
-  }),
-  { ssr: false }
-);
+// Simpler dynamic imports that work better with Vercel build
+const Line = dynamic(() => import('react-chartjs-2').then(mod => mod.Line), { ssr: false });
+const Bar = dynamic(() => import('react-chartjs-2').then(mod => mod.Bar), { ssr: false });
+const Pie = dynamic(() => import('react-chartjs-2').then(mod => mod.Pie), { ssr: false });
+const Doughnut = dynamic(() => import('react-chartjs-2').then(mod => mod.Doughnut), { ssr: false });
 
 // Default chart options
 const defaultOptions = {
@@ -24,7 +16,7 @@ const defaultOptions = {
     legend: {
       position: 'top',
       labels: {
-        color: '#D1D5DB', // text-gray-300
+        color: '#D1D5DB',
         boxWidth: 12,
         padding: 10,
         font: {
@@ -33,10 +25,10 @@ const defaultOptions = {
       }
     },
     tooltip: {
-      backgroundColor: 'rgba(17, 24, 39, 0.8)', // bg-gray-900 with opacity
-      titleColor: '#F9FAFB', // text-gray-50
-      bodyColor: '#F3F4F6', // text-gray-100
-      borderColor: 'rgba(59, 130, 246, 0.5)', // blue-500 with opacity
+      backgroundColor: 'rgba(17, 24, 39, 0.8)',
+      titleColor: '#F9FAFB',
+      bodyColor: '#F3F4F6',
+      borderColor: 'rgba(59, 130, 246, 0.5)',
       borderWidth: 1,
       padding: 10,
       cornerRadius: 6,
@@ -48,11 +40,11 @@ const defaultOptions = {
   scales: {
     x: {
       grid: {
-        color: 'rgba(31, 41, 55, 0.2)', // gray-800 with opacity
-        borderColor: 'rgba(31, 41, 55, 0.5)' // gray-800 with more opacity
+        color: 'rgba(31, 41, 55, 0.2)',
+        borderColor: 'rgba(31, 41, 55, 0.5)'
       },
       ticks: {
-        color: '#9CA3AF', // text-gray-400
+        color: '#9CA3AF',
         maxRotation: 45,
         minRotation: 0,
         font: {
@@ -62,34 +54,15 @@ const defaultOptions = {
     },
     y: {
       grid: {
-        color: 'rgba(31, 41, 55, 0.2)', // gray-800 with opacity
-        borderColor: 'rgba(31, 41, 55, 0.5)' // gray-800 with more opacity
+        color: 'rgba(31, 41, 55, 0.2)',
+        borderColor: 'rgba(31, 41, 55, 0.5)'
       },
       ticks: {
-        color: '#9CA3AF', // text-gray-400
+        color: '#9CA3AF',
         font: {
           size: 10
         }
       }
-    }
-  },
-  elements: {
-    line: {
-      tension: 0.3, // Smoother curves
-      borderWidth: 2
-    },
-    point: {
-      radius: 3,
-      hoverRadius: 5,
-      borderWidth: 2,
-      backgroundColor: '#1F2937' // gray-800
-    },
-    bar: {
-      borderRadius: 4
-    },
-    arc: {
-      borderWidth: 1,
-      borderColor: '#1F2937' // gray-800
     }
   }
 };
@@ -102,17 +75,16 @@ export default function DataChart({
   options = {} 
 }) {
   const [chartOptions, setChartOptions] = useState({});
-  const [aspectRatio, setAspectRatio] = useState(2); // Default 2:1 ratio
   const [isMounted, setIsMounted] = useState(false);
   
-  // Track if component is mounted for client-side rendering
+  // Initialize Chart.js on client-side only
   useEffect(() => {
     setIsMounted(true);
     
-    // Initialize Chart.js components
-    import('chart.js').then(Chart => {
+    // Only import Chart.js in the browser
+    if (typeof window !== 'undefined') {
       import('chart.js/auto');
-    });
+    }
     
     return () => setIsMounted(false);
   }, []);
@@ -124,95 +96,77 @@ export default function DataChart({
     const updateOptions = () => {
       // Set aspect ratio based on screen width
       const screenWidth = window.innerWidth;
-      let newAspectRatio;
+      let aspectRatio;
       
       if (screenWidth < 640) {
-        // Mobile - more compact
-        newAspectRatio = 1.25;
+        aspectRatio = 1.25; // Mobile
       } else if (screenWidth < 1024) {
-        // Tablet
-        newAspectRatio = 1.75;
+        aspectRatio = 1.75; // Tablet
       } else {
-        // Desktop
-        newAspectRatio = 2;
+        aspectRatio = 2; // Desktop
       }
       
-      setAspectRatio(newAspectRatio);
-      
-      // Create responsive options
-      const responsiveOptions = {
+      // Merge options
+      const mergedOptions = {
         ...defaultOptions,
         ...options,
         responsive: true,
         maintainAspectRatio: true,
-        aspectRatio: newAspectRatio,
-        plugins: {
-          ...defaultOptions.plugins,
-          ...options.plugins,
-          legend: {
-            ...defaultOptions.plugins?.legend,
-            ...options.plugins?.legend,
-            display: type === 'pie' || type === 'doughnut' ? true : screenWidth > 640
-          }
-        },
-        scales: {
-          ...defaultOptions.scales,
-          ...options.scales,
-          x: {
-            ...defaultOptions.scales.x,
-            ...options.scales?.x,
-            ticks: {
-              ...defaultOptions.scales.x.ticks,
-              ...options.scales?.x?.ticks,
-              maxRotation: screenWidth < 640 ? 90 : 45,
-              autoSkip: true,
-              maxTicksLimit: screenWidth < 640 ? 6 : 12
-            }
-          }
-        }
+        aspectRatio
       };
       
-      setChartOptions(responsiveOptions);
+      setChartOptions(mergedOptions);
     };
     
-    // Initial update
     updateOptions();
     
-    // Update on resize
     window.addEventListener('resize', updateOptions);
     return () => window.removeEventListener('resize', updateOptions);
   }, [options, type, isMounted]);
 
-  const renderChart = () => {
-    if (!isMounted || !ChartComponent) return null;
-    
-    switch (type) {
-      case 'line':
-        return <ChartComponent.Line data={data} options={chartOptions} />;
-      case 'bar':
-        return <ChartComponent.Bar data={data} options={chartOptions} />;
-      case 'pie':
-        return <ChartComponent.Pie data={data} options={chartOptions} />;
-      case 'doughnut':
-        return <ChartComponent.Doughnut data={data} options={chartOptions} />;
-      default:
-        return <ChartComponent.Line data={data} options={chartOptions} />;
-    }
-  };
-
-  return (
-    <div className="relative w-full" style={{ height: `${height}px` }}>
-      {isLoading ? (
+  // Render fallback for loading state or empty data
+  if (isLoading) {
+    return (
+      <div className="relative w-full" style={{ height: `${height}px` }}>
         <div className="h-full w-full flex items-center justify-center">
           <div className="h-12 w-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
         </div>
-      ) : isMounted && data && data.labels && data.labels.length > 0 ? (
-        renderChart()
-      ) : (
+      </div>
+    );
+  }
+  
+  if (!isMounted || !data || !data.labels || data.labels.length === 0) {
+    return (
+      <div className="relative w-full" style={{ height: `${height}px` }}>
         <div className="h-full w-full flex items-center justify-center text-gray-400 text-center p-4">
           No data available for the selected period
         </div>
-      )}
+      </div>
+    );
+  }
+  
+  // Render the appropriate chart type
+  let ChartComponent;
+  switch (type) {
+    case 'line':
+      ChartComponent = Line;
+      break;
+    case 'bar':
+      ChartComponent = Bar;
+      break;
+    case 'pie':
+      ChartComponent = Pie;
+      break;
+    case 'doughnut':
+      ChartComponent = Doughnut;
+      break;
+    default:
+      ChartComponent = Line;
+  }
+  
+  return (
+    <div className="relative w-full" style={{ height: `${height}px` }}>
+      <ChartComponent data={data} options={chartOptions} />
     </div>
   );
 }
