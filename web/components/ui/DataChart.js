@@ -2,46 +2,19 @@
 import React, { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 
-// Dynamic imports for client-side only components
-const ChartJS = dynamic(
-  () => import('chart.js/auto').then((mod) => {
-    // Register all needed components
-    const { 
-      Chart, 
-      CategoryScale, 
-      LinearScale, 
-      PointElement, 
-      LineElement, 
-      BarElement,
-      ArcElement,
-      Title, 
-      Tooltip, 
-      Legend,
-      Filler
-    } = mod;
-    
-    Chart.register(
-      CategoryScale,
-      LinearScale,
-      PointElement,
-      LineElement,
-      BarElement,
-      ArcElement,
-      Title,
-      Tooltip,
-      Legend,
-      Filler
-    );
-    
-    return mod;
+// Import Chart.js with a simpler approach
+const ChartComponent = dynamic(
+  () => import('react-chartjs-2').then(mod => {
+    // No need for manual registration in client component
+    return {
+      Line: mod.Line,
+      Bar: mod.Bar,
+      Pie: mod.Pie,
+      Doughnut: mod.Doughnut
+    };
   }),
   { ssr: false }
 );
-
-const Line = dynamic(() => import('react-chartjs-2').then(mod => mod.Line), { ssr: false });
-const Bar = dynamic(() => import('react-chartjs-2').then(mod => mod.Bar), { ssr: false });
-const Pie = dynamic(() => import('react-chartjs-2').then(mod => mod.Pie), { ssr: false });
-const Doughnut = dynamic(() => import('react-chartjs-2').then(mod => mod.Doughnut), { ssr: false });
 
 // Default chart options
 const defaultOptions = {
@@ -135,6 +108,12 @@ export default function DataChart({
   // Track if component is mounted for client-side rendering
   useEffect(() => {
     setIsMounted(true);
+    
+    // Initialize Chart.js components
+    import('chart.js').then(Chart => {
+      import('chart.js/auto');
+    });
+    
     return () => setIsMounted(false);
   }, []);
   
@@ -205,19 +184,19 @@ export default function DataChart({
   }, [options, type, isMounted]);
 
   const renderChart = () => {
-    if (!isMounted) return null;
+    if (!isMounted || !ChartComponent) return null;
     
     switch (type) {
       case 'line':
-        return <Line data={data} options={chartOptions} />;
+        return <ChartComponent.Line data={data} options={chartOptions} />;
       case 'bar':
-        return <Bar data={data} options={chartOptions} />;
+        return <ChartComponent.Bar data={data} options={chartOptions} />;
       case 'pie':
-        return <Pie data={data} options={chartOptions} />;
+        return <ChartComponent.Pie data={data} options={chartOptions} />;
       case 'doughnut':
-        return <Doughnut data={data} options={chartOptions} />;
+        return <ChartComponent.Doughnut data={data} options={chartOptions} />;
       default:
-        return <Line data={data} options={chartOptions} />;
+        return <ChartComponent.Line data={data} options={chartOptions} />;
     }
   };
 
