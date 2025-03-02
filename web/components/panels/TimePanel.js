@@ -1,4 +1,4 @@
-// web/components/panels/TimePanel.js
+// Fixed TimePanel.js with robust error handling
 import { useState, useEffect } from 'react';
 import DataChart from '../ui/DataChart';
 import TimeCard from '../ui/TimeCard';
@@ -7,6 +7,7 @@ import TimeDistribution from '../ui/TimeDistribution';
 export default function TimePanel({ supabase, dateRange }) {
   const [timeData, setTimeData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [aggregatedData, setAggregatedData] = useState({
     byBucket: {},
     byDay: {}
@@ -16,32 +17,48 @@ export default function TimePanel({ supabase, dateRange }) {
   useEffect(() => {
     async function fetchData() {
       setIsLoading(true);
+      setError(null);
       
       try {
+        if (!supabase) {
+          throw new Error("Supabase client is not available");
+        }
+        
+        if (!dateRange || !dateRange.startDate || !dateRange.endDate) {
+          throw new Error("Date range is invalid");
+        }
+        
         // Format dates for queries
         const startDate = dateRange.startDate.toISOString().split('T')[0];
         const endDate = dateRange.endDate.toISOString().split('T')[0];
         
         // Get toggl data
-        const { data: togglData } = await supabase
+        const { data: togglData, error: togglError } = await supabase
           .from('toggl_time')
           .select('*')
           .gte('date', startDate)
           .lte('date', endDate)
           .order('date', { ascending: true });
           
-        if (togglData) {
-          setTimeData(togglData);
-          
+        if (togglError) {
+          throw togglError;
+        }
+        
+        // Always ensure we have an array even if the query failed
+        const safeTogglData = Array.isArray(togglData) ? togglData : [];
+        setTimeData(safeTogglData);
+        
+        // Only proceed with aggregation if we have data
+        if (safeTogglData.length > 0) {
           // Aggregate by bucket
-          const byBucket = togglData.reduce((acc, entry) => {
+          const byBucket = safeTogglData.reduce((acc, entry) => {
             const bucket = entry.bucket || 'Uncategorized';
             acc[bucket] = (acc[bucket] || 0) + entry.hours;
             return acc;
           }, {});
           
           // Aggregate by day
-          const byDay = togglData.reduce((acc, entry) => {
+          const byDay = safeTogglData.reduce((acc, entry) => {
             const date = entry.date;
             if (!acc[date]) acc[date] = {};
             
@@ -52,9 +69,15 @@ export default function TimePanel({ supabase, dateRange }) {
           }, {});
           
           setAggregatedData({ byBucket, byDay });
+        } else {
+          // Set empty but valid data structures
+          setAggregatedData({ byBucket: {}, byDay: {} });
         }
       } catch (error) {
         console.error('Error fetching time data:', error);
+        setError(error.message);
+        // Ensure we have valid empty data structures even in case of error
+        setAggregatedData({ byBucket: {}, byDay: {} });
       } finally {
         setIsLoading(false);
       }
@@ -63,12 +86,12 @@ export default function TimePanel({ supabase, dateRange }) {
     fetchData();
   }, [supabase, dateRange]);
 
-  // Prepare data for the bucket distribution chart
+  // Safely prepare data for the bucket distribution chart
   const bucketDistributionData = {
-    labels: Object.keys(aggregatedData.byBucket),
+    labels: Object.keys(aggregatedData.byBucket || {}),
     datasets: [
       {
-        data: Object.values(aggregatedData.byBucket),
+        data: Object.values(aggregatedData.byBucket || {}),
         backgroundColor: [
           'rgba(59, 130, 246, 0.8)',
           'rgba(16, 185, 129, 0.8)',
@@ -81,18 +104,22 @@ export default function TimePanel({ supabase, dateRange }) {
     ]
   };
   
-  // Prepare data for the time trend chart
+  // Safely prepare data for the time trend chart
   const timeChartData = {
-    labels: Object.keys(aggregatedData.byDay).sort(),
-    datasets: Object.entries(
-      // Get unique buckets across all days
-      Object.values(aggregatedData.byDay).reduce((acc, dayData) => {
+    // Default to empty array if aggregatedData.byDay is undefined
+    labels: Object.keys(aggregatedData.byDay || {}).sort(),
+    datasets: (() => {
+      // Guard against undefined
+      if (!aggregatedData.byDay) return [];
+      
+      // Collect all unique bucket names across all days
+      const uniqueBuckets = {};
+      Object.values(aggregatedData.byDay).forEach(dayData => {
         Object.keys(dayData).forEach(bucket => {
-          acc[bucket] = true;
+          uniqueBuckets[bucket] = true;
         });
-        return acc;
-      }, {})
-    ).map(([bucket, _], index) => {
+      });
+      
       const colors = [
         'rgba(59, 130, 246, 0.8)',
         'rgba(16, 185, 129, 0.8)',
@@ -101,27 +128,47 @@ export default function TimePanel({ supabase, dateRange }) {
         'rgba(139, 92, 246, 0.8)'
       ];
       
-      return {
-        label: bucket,
-        data: Object.keys(aggregatedData.byDay).sort().map(date => 
-          aggregatedData.byDay[date][bucket] || 0
-        ),
-        backgroundColor: colors[index % colors.length],
-        borderColor: colors[index % colors.length],
-        borderWidth: 2,
-        fill: false
-      };
-    })
+      // Create a dataset for each bucket
+      return Object.keys(uniqueBuckets).map((bucket, index) => {
+        return {
+          label: bucket,
+          data: Object.keys(aggregatedData.byDay).sort().map(date => 
+            (aggregatedData.byDay[date] && aggregatedData.byDay[date][bucket]) || 0
+          ),
+          backgroundColor: colors[index % colors.length],
+          borderColor: colors[index % colors.length],
+          borderWidth: 2,
+          fill: false
+        };
+      });
+    })()
   };
 
-  // Calculate stats
-  const totalHours = Object.values(aggregatedData.byBucket).reduce((a, b) => a + b, 0);
-  const deepWorkHours = aggregatedData.byBucket['Deep Work'] || 0;
+  // Safely calculate stats
+  const totalHours = Object.values(aggregatedData.byBucket || {}).reduce((a, b) => a + b, 0);
+  const deepWorkHours = (aggregatedData.byBucket && aggregatedData.byBucket['Deep Work']) || 0;
   const deepWorkPercentage = totalHours > 0 ? (deepWorkHours / totalHours * 100).toFixed(1) : 0;
   
   // Calculate daily average
   const uniqueDays = new Set(timeData.map(entry => entry.date)).size;
   const dailyAverage = uniqueDays > 0 ? (totalHours / uniqueDays).toFixed(1) : 0;
+
+  // Show error state if we have an error
+  if (error && !isLoading) {
+    return (
+      <div className="space-y-6">
+        <h2 className="text-2xl font-orbitron text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500">
+          Time Management
+        </h2>
+        
+        <div className="bg-red-900/20 border border-red-500 p-4 rounded-lg">
+          <h3 className="text-lg font-medium text-red-400 mb-2">Error Loading Data</h3>
+          <p className="text-white">{error}</p>
+          <p className="mt-4 text-gray-300">Try refreshing the page or check your connection.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -187,7 +234,7 @@ export default function TimePanel({ supabase, dateRange }) {
               <div className="h-full w-full flex items-center justify-center">
                 <div className="h-12 w-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
               </div>
-            ) : Object.keys(aggregatedData.byBucket).length > 0 ? (
+            ) : Object.keys(aggregatedData.byBucket || {}).length > 0 ? (
               <DataChart 
                 data={bucketDistributionData} 
                 type="pie" 
@@ -212,7 +259,7 @@ export default function TimePanel({ supabase, dateRange }) {
       <div className="bg-gray-800 bg-opacity-60 rounded-lg border border-blue-500/20 p-4 backdrop-blur-sm">
         <h3 className="text-lg font-medium text-blue-300 mb-4">Time Allocation</h3>
         <TimeDistribution 
-          data={Object.entries(aggregatedData.byBucket).map(([bucket, hours]) => ({ 
+          data={Object.entries(aggregatedData.byBucket || {}).map(([bucket, hours]) => ({ 
             name: bucket, 
             value: hours,
             percentage: totalHours > 0 ? (hours / totalHours * 100).toFixed(1) : 0
