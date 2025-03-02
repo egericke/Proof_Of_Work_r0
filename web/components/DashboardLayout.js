@@ -1,4 +1,4 @@
-// web/components/DashboardLayout.js - With enhanced error handling
+// web/components/DashboardLayout.js - With robust Supabase error handling
 import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import DashboardSidebar from './DashboardSidebar';
@@ -45,6 +45,7 @@ export default function DashboardLayout() {
   const [supabase, setSupabase] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
+  const [envVarsAvailable, setEnvVarsAvailable] = useState(false);
   const [activePanel, setActivePanel] = useState('overview');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [dateRange, setDateRange] = useState({
@@ -62,10 +63,33 @@ export default function DashboardLayout() {
     console.log("DashboardLayout mounted");
   }, []);
 
+  // Check environment variables
+  useEffect(() => {
+    if (isMounted) {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      
+      if (supabaseUrl && supabaseKey) {
+        setEnvVarsAvailable(true);
+      } else {
+        console.error('Missing environment variables:', 
+          !supabaseUrl ? 'NEXT_PUBLIC_SUPABASE_URL' : '',
+          !supabaseKey ? 'NEXT_PUBLIC_SUPABASE_ANON_KEY' : ''
+        );
+        setLoadError('Missing required environment variables. Check browser console for details.');
+        setIsLoading(false);
+      }
+    }
+  }, [isMounted]);
+
   // Initialize Supabase client
   useEffect(() => {
     const initSupabase = async () => {
       try {
+        if (!envVarsAvailable) {
+          return; // Don't try to initialize if env vars are not available
+        }
+        
         // Use our singleton function to get the client
         const supabaseClient = getSupabaseClient();
         
@@ -73,21 +97,29 @@ export default function DashboardLayout() {
           throw new Error('Failed to initialize Supabase client');
         }
         
+        // Test the connection with a simple query
+        const { error: testError } = await supabaseClient.from('workout_stats').select('count', { count: 'exact', head: true });
+        
+        if (testError) {
+          console.warn('Supabase connection test failed, but will proceed with client:', testError.message);
+          // We'll still set the client even if the test fails, as the tables might just not exist yet
+        }
+        
         setSupabase(supabaseClient);
         console.log("Supabase client initialized successfully");
       } catch (error) {
         console.error('Error initializing Supabase client:', error);
-        setLoadError(error.message);
+        setLoadError(`Failed to connect to database: ${error.message}`);
       } finally {
         // Always set loading to false even if there was an error
         setIsLoading(false);
       }
     };
     
-    if (isMounted) {
+    if (isMounted && envVarsAvailable) {
       initSupabase();
     }
-  }, [isMounted]);
+  }, [isMounted, envVarsAvailable]);
 
   // Toggle sidebar for mobile
   const toggleSidebar = () => {
@@ -125,12 +157,42 @@ export default function DashboardLayout() {
           <p className="text-gray-400 max-w-md text-center mb-4">
             {loadError}
           </p>
+          <div className="bg-gray-800 p-4 rounded-lg mb-6 max-w-md">
+            <h3 className="text-white font-medium mb-2">Troubleshooting Steps:</h3>
+            <ol className="list-decimal list-inside text-gray-300 space-y-2">
+              <li>Check if your environment variables are set correctly</li>
+              <li>Verify your Supabase database is up and running</li>
+              <li>Make sure you have the required tables created</li>
+              <li>Check browser console for additional error details</li>
+            </ol>
+          </div>
           <button 
             onClick={() => window.location.reload()}
             className="px-4 py-2 bg-blue-600 rounded text-white hover:bg-blue-700 transition-colors"
           >
             Retry
           </button>
+        </div>
+      );
+    }
+
+    // Create a "demo mode" panel to show without Supabase
+    if (!supabase) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full p-8">
+          <div className="text-xl text-amber-400 mb-4">Dashboard Running in Demo Mode</div>
+          <p className="text-gray-300 max-w-md text-center mb-4">
+            The dashboard is running without a database connection. Data shown is sample data for demonstration purposes.
+          </p>
+          <div className="bg-gray-800 p-4 rounded-lg mb-6 max-w-md">
+            <h3 className="text-white font-medium mb-2">To connect to your database:</h3>
+            <ol className="list-decimal list-inside text-gray-300 space-y-2">
+              <li>Set up your Supabase project</li>
+              <li>Add environment variables in your .env.local file</li>
+              <li>Create the required database tables</li>
+              <li>Restart the application</li>
+            </ol>
+          </div>
         </div>
       );
     }
