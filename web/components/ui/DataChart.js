@@ -68,7 +68,7 @@ const defaultOptions = {
 };
 
 export default function DataChart({ 
-  data, 
+  data = { labels: [], datasets: [] }, // Provide default empty arrays
   type = 'line', 
   height = 300, 
   isLoading = false,
@@ -76,6 +76,13 @@ export default function DataChart({
 }) {
   const [chartOptions, setChartOptions] = useState({});
   const [isMounted, setIsMounted] = useState(false);
+  
+  // Check if data is valid
+  const isDataValid = data && 
+                     Array.isArray(data.labels) && 
+                     Array.isArray(data.datasets) && 
+                     data.labels.length > 0 && 
+                     data.datasets.length > 0;
   
   // Initialize Chart.js on client-side only
   useEffect(() => {
@@ -135,7 +142,8 @@ export default function DataChart({
     );
   }
   
-  if (!isMounted || !data || !data.labels || data.labels.length === 0) {
+  // Check for valid data
+  if (!isMounted || !isDataValid) {
     return (
       <div className="relative w-full" style={{ height: `${height}px` }}>
         <div className="h-full w-full flex items-center justify-center text-gray-400 text-center p-4">
