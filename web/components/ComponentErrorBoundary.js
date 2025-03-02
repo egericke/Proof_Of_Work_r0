@@ -1,41 +1,36 @@
-// web/components/ComponentErrorBoundary.js
+// web/components/ErrorBoundary.js
 import React from 'react';
 
-class ComponentErrorBoundary extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = { 
-      hasError: false,
-      error: null
-    };
-  }
+export default class ErrorBoundary extends React.Component {
+  state = { hasError: false, error: null, errorInfo: null };
 
   static getDerivedStateFromError(error) {
     return { hasError: true, error };
   }
 
   componentDidCatch(error, errorInfo) {
-    console.error(`Error in component "${this.props.componentName}":`, error, errorInfo);
+    console.error('ErrorBoundary caught:', error, errorInfo.componentStack);
+    this.setState({ errorInfo });
   }
 
   render() {
     if (this.state.hasError) {
       return (
-        <div className="p-4 rounded-lg bg-red-900/20 border border-red-500 text-white">
-          <h3 className="text-lg font-medium text-red-300 mb-2">{this.props.componentName} Error</h3>
-          <p className="mb-3 text-gray-300">This component encountered an error and couldn't be displayed.</p>
-          {this.state.error && (
-            <div className="text-sm bg-gray-900/50 p-3 rounded overflow-auto max-h-32">
-              <p className="font-mono text-red-300">{this.state.error.toString()}</p>
-            </div>
-          )}
-          {this.props.fallback}
+        <div className="p-4 bg-red-900 bg-opacity-30 rounded border border-red-500 text-white">
+          <h2 className="text-lg font-bold">Something went wrong.</h2>
+          <p>{this.state.error?.toString()}</p>
+          <pre className="text-sm whitespace-pre-wrap">
+            {this.state.errorInfo?.componentStack}
+          </pre>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-2 px-4 py-2 bg-blue-600 rounded hover:bg-blue-700"
+          >
+            Refresh Page
+          </button>
         </div>
       );
     }
-
     return this.props.children;
   }
 }
-
-export default ComponentErrorBoundary;
