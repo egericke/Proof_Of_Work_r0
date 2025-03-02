@@ -19,7 +19,9 @@ const formatDuration = (seconds) => {
 };
 
 const getActivityIcon = (type) => {
-  switch (type?.toLowerCase()) {
+  if (!type) return null;
+  
+  switch (type.toLowerCase()) {
     case 'running':
       return (
         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -74,15 +76,25 @@ export default function WorkoutCard({
     );
   }
   
-  // Format date string
-  const formattedDate = date ? new Date(date).toLocaleDateString() : 'Unknown date';
+  // Format date string safely
+  let formattedDate = 'Unknown date';
+  if (date) {
+    try {
+      formattedDate = new Date(date).toLocaleDateString();
+    } catch (e) {
+      console.error('Error formatting date:', e);
+    }
+  }
+  
+  // Default title if not provided
+  const workoutTitle = title || (activityType ? `${activityType} workout` : 'Workout');
   
   return (
     <div className="bg-gray-800 bg-opacity-60 rounded-lg border border-blue-500/20 p-4 backdrop-blur-sm transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/10 hover:scale-[1.02]">
       <div className="flex justify-between items-start mb-2">
         <div>
           <span className="text-gray-400 text-sm">{formattedDate}</span>
-          <h3 className="text-white font-medium">{title || `${activityType} workout`}</h3>
+          <h3 className="text-white font-medium">{workoutTitle}</h3>
         </div>
         
         <div className="p-2 rounded-full bg-blue-500/20 text-blue-400">
