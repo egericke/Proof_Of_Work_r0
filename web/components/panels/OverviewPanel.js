@@ -170,9 +170,10 @@ export default function OverviewPanel({
               .gte('date', startDateStr)
               .lte('date', endDateStr);
 
-            // Toggl time query
+            // Toggl time query (use toggl_entries instead of toggl_time)
+            console.log('OverviewPanel: Fetching toggl data from toggl_entries table');
             const togglQuery = supabase
-              .from('toggl_time')
+              .from('toggl_entries')
               .select('*')
               .gte('date', startDateStr)
               .lte('date', endDateStr);

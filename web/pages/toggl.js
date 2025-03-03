@@ -45,11 +45,13 @@ export default function TogglPage() {
         const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
         const supabase = createClient(supabaseUrl, supabaseKey);
         
-        // Fetch Toggl data directly from Supabase
+        // Fetch Toggl data directly from Supabase (use toggl_entries instead of toggl_time)
+        console.log('TogglPage: Starting toggl_entries query');
         const { data: togglData, error } = await supabase
-          .from('toggl_time')
+          .from('toggl_entries')
           .select('date, bucket, hours')
           .order('date', { ascending: true });
+        console.log(`TogglPage: toggl_entries query completed - ${error ? 'Error: ' + error.message : 'Success - ' + (togglData?.length || 0) + ' records'}`);
           
         if (error) throw error;
         

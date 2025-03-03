@@ -61,8 +61,9 @@ export default function TimePanel({ dateRange, supabase: propSupabase, initialTi
         // Fetch from Supabase if client is available
         if (supabase) {
           try {
-            const query = supabase
-              .from('toggl_time')
+            console.log('TimePanel: Fetching toggl data from toggl_entries table');
+          const query = supabase
+              .from('toggl_entries')
               .select('*')
               .gte('date', startDateStr)
               .lte('date', endDateStr)
@@ -77,7 +78,7 @@ export default function TimePanel({ dateRange, supabase: propSupabase, initialTi
 
             // Detailed error logging to help debug Vercel deployment issues
             if (queryError) {
-              console.error('Supabase time query error details:', {
+              console.error('Supabase toggl_entries query error details:', {
                 message: queryError.message,
                 code: queryError.code,
                 details: queryError.details,
@@ -204,9 +205,13 @@ export default function TimePanel({ dateRange, supabase: propSupabase, initialTi
                 .map((entry, index) => (
                   <TimeCard
                     key={index}
-                    date={entry?.date || 'Unknown date'}
-                    bucket={entry?.bucket || 'Unknown category'}
+                    title={entry?.bucket || 'Unknown category'} 
+                    subtitle={entry?.description || entry?.date || 'No description'}
                     hours={entry?.hours || 0}
+                    icon="clock"
+                    color={entry?.bucket === 'Deep Work' ? 'blue' : 
+                           entry?.bucket === 'Meetings' ? 'purple' : 
+                           entry?.bucket === 'Learning' ? 'green' : 'amber'}
                   />
                 ))
               : <div className="text-gray-400 text-center py-4">Error: Invalid time entries data format.</div>

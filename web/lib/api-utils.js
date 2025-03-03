@@ -65,8 +65,9 @@ export default async function handler(req, res) {
     const { start_date, end_date, bucket } = req.query;
     
     try {
-      // Build query
-      let query = supabase.from('toggl_time').select('*');
+      // Build query - use toggl_entries instead of toggl_time
+      console.log('API-Utils: Starting toggl_entries query');
+      let query = supabase.from('toggl_entries').select('*');
       
       // Add filters if provided
       if (start_date) {
@@ -81,6 +82,7 @@ export default async function handler(req, res) {
       
       // Execute query
       const { data, error } = await query.order('date', { ascending: true });
+      console.log(`API-Utils: toggl_entries query completed - ${error ? 'Error: ' + error.message : 'Success - ' + (data?.length || 0) + ' records'}`);
       
       if (error) {
         // Check if the error is due to missing table

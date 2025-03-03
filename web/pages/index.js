@@ -164,9 +164,9 @@ export async function getServerSideProps() {
         .order('test_date', { ascending: false })
     );
     
-    const timeQuery = fetchWithRetry('toggl_time',
+    const timeQuery = fetchWithRetry('toggl_entries',
       supabase
-        .from('toggl_time')
+        .from('toggl_entries')
         .select('*')
         .gte('date', startDateStr)
         .lte('date', endDateStr)

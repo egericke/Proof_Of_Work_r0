@@ -50,15 +50,16 @@ export const fallbackHabitData = [
   { id: 9, habit_date: '2023-01-12', habit_name: 'Exercise', completed: true }
 ];
 
+// Consistent fallback data structure for toggl_entries
 export const fallbackTimeData = [
-  { id: 1, date: '2023-01-10', bucket: 'Deep Work', hours: 4.5 },
-  { id: 2, date: '2023-01-10', bucket: 'Meetings', hours: 2.0 },
-  { id: 3, date: '2023-01-11', bucket: 'Deep Work', hours: 3.8 },
-  { id: 4, date: '2023-01-11', bucket: 'Learning', hours: 1.5 },
-  { id: 5, date: '2023-01-12', bucket: 'Deep Work', hours: 5.2 },
-  { id: 6, date: '2023-01-12', bucket: 'Health & Fitness', hours: 1.0 },
-  { id: 7, date: '2023-01-13', bucket: 'Deep Work', hours: 4.1 },
-  { id: 8, date: '2023-01-13', bucket: 'Meetings', hours: 3.0 }
+  { id: 1, date: '2023-01-10', bucket: 'Deep Work', hours: 4.5, description: 'Programming' },
+  { id: 2, date: '2023-01-10', bucket: 'Meetings', hours: 2.0, description: 'Team standup' },
+  { id: 3, date: '2023-01-11', bucket: 'Deep Work', hours: 3.8, description: 'Code review' },
+  { id: 4, date: '2023-01-11', bucket: 'Learning', hours: 1.5, description: 'React course' },
+  { id: 5, date: '2023-01-12', bucket: 'Deep Work', hours: 5.2, description: 'Feature development' },
+  { id: 6, date: '2023-01-12', bucket: 'Health & Fitness', hours: 1.0, description: 'Workout' },
+  { id: 7, date: '2023-01-13', bucket: 'Deep Work', hours: 4.1, description: 'API integration' },
+  { id: 8, date: '2023-01-13', bucket: 'Meetings', hours: 3.0, description: 'Planning session' }
 ];
 
 // Keep these for backward compatibility
