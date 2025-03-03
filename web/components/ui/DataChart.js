@@ -1,6 +1,33 @@
 // web/components/ui/DataChart.js
 import React from 'react';
 import { Line, Bar, Doughnut } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+} from 'chart.js';
+
+// Register required Chart.js components
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+);
 
 export default function DataChart({ data = { labels: [], datasets: [] }, type = 'line', height = 300, isLoading, options = {} }) {
   if (isLoading) {
@@ -15,8 +42,8 @@ export default function DataChart({ data = { labels: [], datasets: [] }, type = 
     plugins: { legend: { labels: { color: '#e5e7eb' } }, ...options.plugins },
     scales: options.scales ? {
       ...options.scales,
-      x: { ...options.scales.x, grid: { color: 'rgba(255, 255, 255, 0.1)' }, ticks: { color: '#e5e7eb' } },
-      y: { ...options.scales.y, grid: { color: 'rgba(255, 255, 255, 0.1)' }, ticks: { color: '#e5e7eb' } },
+      x: { type: 'category', ...options.scales.x, grid: { color: 'rgba(255, 255, 255, 0.1)' }, ticks: { color: '#e5e7eb' } },
+      y: { type: 'linear', ...options.scales.y, grid: { color: 'rgba(255, 255, 255, 0.1)' }, ticks: { color: '#e5e7eb' } },
     } : undefined,
   };
 
