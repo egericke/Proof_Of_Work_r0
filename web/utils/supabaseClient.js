@@ -70,6 +70,30 @@ function getMockSupabaseClient() {
       },
     };
     
+    // Add direct awaited execution for use with async/await style
+    queryBuilder.execute = async () => {
+      let mockData;
+      
+      switch (table) {
+        case 'workout_stats':
+          mockData = { data: fallbackWorkoutData || [], error: null };
+          break;
+        case 'toggl_time':
+          mockData = { data: fallbackTimeData || [], error: null };
+          break;
+        case 'habit_tracking':
+          mockData = { data: fallbackHabitData || [], error: null };
+          break;
+        case 'vo2max_tests':
+          mockData = { data: fallbackVo2MaxData || [], error: null };
+          break;
+        default:
+          mockData = { data: [], error: null };
+      }
+      
+      return mockData;
+    };
+    
     return queryBuilder;
   }
 }

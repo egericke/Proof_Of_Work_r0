@@ -31,6 +31,12 @@ export default function OverviewPanel({ dateRange }) {
     async function fetchData() {
       setIsLoading(true);
       try {
+        if (!dateRange || !dateRange.startDate || !dateRange.endDate) {
+          console.warn('OverviewPanel: Invalid dateRange provided, using fallback data');
+          setRecentActivities(fallbackActivities || []);
+          return;
+        }
+
         const startDateStr = formatDateParam(dateRange.startDate);
         const endDateStr = formatDateParam(dateRange.endDate);
         const supabase = getSupabaseClient();
@@ -40,63 +46,106 @@ export default function OverviewPanel({ dateRange }) {
         let workoutCount = 0;
         let deepWorkHours = 0;
         let habitStreakCount = 0;
-        let recentItems = [...fallbackActivities];
+        let recentItems = [...(fallbackActivities || [])];
 
         if (supabase) {
-          const { data: vo2MaxData } = await supabase
-            .from('vo2max_tests')
-            .select('*')
-            .order('test_date', { ascending: false })
-            .limit(1);
-          if (vo2MaxData?.length > 0) vo2MaxValue = vo2MaxData[0].vo2max_value;
+          try {
+            // VO2 max query
+            const vo2MaxQuery = supabase
+              .from('vo2max_tests')
+              .select('*')
+              .order('test_date', { ascending: false })
+              .limit(1);
 
-          const { data: workoutsData } = await supabase
-            .from('workout_stats')
-            .select('*')
-            .gte('date', startDateStr)
-            .lte('date', endDateStr);
-          if (workoutsData) {
-            workoutCount = workoutsData.length;
-            const workoutActivities = (workoutsData || []).slice(0, 3).map(workout => ({
-              type: 'workout',
-              title: workout.title || workout.activity_type,
-              date: new Date(workout.date).toLocaleDateString(),
-              value: `${(workout.distance / 1000).toFixed(2)} km`,
-            }));
-            if (workoutActivities.length > 0) {
-              recentItems = [...workoutActivities, ...recentItems.slice(0, 3 - workoutActivities.length)];
+            // Workouts query
+            const workoutsQuery = supabase
+              .from('workout_stats')
+              .select('*')
+              .gte('date', startDateStr)
+              .lte('date', endDateStr);
+
+            // Toggl time query
+            const togglQuery = supabase
+              .from('toggl_time')
+              .select('*')
+              .gte('date', startDateStr)
+              .lte('date', endDateStr);
+
+            // Habits query
+            const habitsQuery = supabase
+              .from('habit_tracking')
+              .select('*')
+              .gte('habit_date', startDateStr)
+              .lte('habit_date', endDateStr);
+
+            // Use execute for mockClient or standard await pattern
+            const vo2MaxResult = vo2MaxQuery.execute 
+              ? await vo2MaxQuery.execute() 
+              : await vo2MaxQuery;
+              
+            const workoutsResult = workoutsQuery.execute 
+              ? await workoutsQuery.execute() 
+              : await workoutsQuery;
+              
+            const togglResult = togglQuery.execute 
+              ? await togglQuery.execute() 
+              : await togglQuery;
+              
+            const habitsResult = habitsQuery.execute 
+              ? await habitsQuery.execute() 
+              : await habitsQuery;
+
+            // Extract data and handle errors
+            const { data: vo2MaxData, error: vo2MaxError } = vo2MaxResult;
+            const { data: workoutsData, error: workoutsError } = workoutsResult;
+            const { data: togglData, error: togglError } = togglResult;
+            const { data: habitsData, error: habitsError } = habitsResult;
+
+            // Process VO2 max data
+            if (!vo2MaxError && vo2MaxData && Array.isArray(vo2MaxData) && vo2MaxData.length > 0) {
+              vo2MaxValue = vo2MaxData[0].vo2max_value;
             }
-          }
 
-          const { data: togglData } = await supabase
-            .from('toggl_time')
-            .select('*')
-            .gte('date', startDateStr)
-            .lte('date', endDateStr);
-          if (togglData) {
-            deepWorkHours = togglData
-              .filter(entry => entry.bucket === 'Deep Work')
-              .reduce((sum, entry) => sum + entry.hours, 0);
-          }
-
-          const { data: habitsData } = await supabase
-            .from('habit_tracking')
-            .select('*')
-            .gte('habit_date', startDateStr)
-            .lte('habit_date', endDateStr);
-          if (habitsData) {
-            const habitsByDate = {};
-            (habitsData || []).forEach(habit => {
-              if (!habitsByDate[habit.habit_date]) {
-                habitsByDate[habit.habit_date] = { total: 0, completed: 0 };
+            // Process workouts data
+            if (!workoutsError && workoutsData && Array.isArray(workoutsData)) {
+              workoutCount = workoutsData.length;
+              const workoutActivities = workoutsData.slice(0, 3).map(workout => ({
+                type: 'workout',
+                title: workout?.title || workout?.activity_type || 'Workout',
+                date: workout?.date ? new Date(workout.date).toLocaleDateString() : 'Unknown',
+                value: `${((workout?.distance || 0) / 1000).toFixed(2)} km`,
+              }));
+              if (workoutActivities.length > 0) {
+                recentItems = [...workoutActivities, ...(recentItems || []).slice(0, 3 - workoutActivities.length)];
               }
-              habitsByDate[habit.habit_date].total++;
-              if (habit.completed) habitsByDate[habit.habit_date].completed++;
-            });
-            habitStreakCount = Object.keys(habitsByDate).filter(date => {
-              const dayData = habitsByDate[date];
-              return dayData.completed / dayData.total >= 0.8;
-            }).length;
+            }
+
+            // Process toggl data
+            if (!togglError && togglData && Array.isArray(togglData)) {
+              deepWorkHours = togglData
+                .filter(entry => entry && entry.bucket === 'Deep Work')
+                .reduce((sum, entry) => sum + (entry?.hours || 0), 0);
+            }
+
+            // Process habits data
+            if (!habitsError && habitsData && Array.isArray(habitsData)) {
+              const habitsByDate = {};
+              habitsData.forEach(habit => {
+                if (!habit) return;
+                if (!habitsByDate[habit.habit_date]) {
+                  habitsByDate[habit.habit_date] = { total: 0, completed: 0 };
+                }
+                habitsByDate[habit.habit_date].total++;
+                if (habit.completed) habitsByDate[habit.habit_date].completed++;
+              });
+              habitStreakCount = Object.keys(habitsByDate).filter(date => {
+                const dayData = habitsByDate[date];
+                return dayData.completed / dayData.total >= 0.8;
+              }).length;
+            }
+          } catch (supabaseError) {
+            console.error('Supabase query error:', supabaseError);
+            // Continue with fallback data
           }
         }
 
@@ -122,16 +171,16 @@ export default function OverviewPanel({ dateRange }) {
         };
 
         setStats({
-          vo2Max: { value: vo2MaxValue, trend: vo2MaxTrend },
-          workouts: { value: workoutCount, trend: 0 },
-          focusHours: { value: deepWorkHours.toFixed(1), trend: 0 },
-          habitStreak: { value: habitStreakCount, trend: 0 },
+          vo2Max: { value: vo2MaxValue || 0, trend: vo2MaxTrend || 0 },
+          workouts: { value: workoutCount || 0, trend: 0 },
+          focusHours: { value: deepWorkHours ? deepWorkHours.toFixed(1) : '0.0', trend: 0 },
+          habitStreak: { value: habitStreakCount || 0, trend: 0 },
         });
         setActivityData(chartData);
-        setRecentActivities(recentItems);
+        setRecentActivities(recentItems || []);
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
-        setRecentActivities(fallbackActivities);
+        setRecentActivities(fallbackActivities || []);
       } finally {
         setIsLoading(false);
       }

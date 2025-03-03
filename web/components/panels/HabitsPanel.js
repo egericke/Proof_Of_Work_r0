@@ -22,6 +22,12 @@ export default function HabitsPanel({ dateRange }) {
     async function fetchData() {
       setIsLoading(true);
       try {
+        if (!dateRange || !dateRange.startDate || !dateRange.endDate) {
+          console.warn('HabitsPanel: Invalid dateRange provided, using fallback data');
+          setHabits(fallbackHabits);
+          return;
+        }
+
         const startDateStr = formatDateParam(dateRange.startDate);
         const endDateStr = formatDateParam(dateRange.endDate);
         const supabase = getSupabaseClient();
@@ -31,23 +37,37 @@ export default function HabitsPanel({ dateRange }) {
 
         // Fetch from Supabase if client is available
         if (supabase) {
-          const { data: fetchedData, error } = await supabase
-            .from('habit_tracking')
-            .select('*')
-            .gte('habit_date', startDateStr)
-            .lte('habit_date', endDateStr)
-            .order('habit_date', { ascending: true });
+          try {
+            const query = supabase
+              .from('habit_tracking')
+              .select('*')
+              .gte('habit_date', startDateStr)
+              .lte('habit_date', endDateStr)
+              .order('habit_date', { ascending: true });
 
-          if (error) throw error;
-          // Use fetched data if available and non-empty
-          if (fetchedData?.length > 0) habitsData = fetchedData;
+            // Use execute for mockClient or standard await pattern
+            const result = query.execute 
+              ? await query.execute() 
+              : await query;
+
+            const { data: fetchedData, error } = result;
+
+            if (error) throw error;
+            // Use fetched data if available and non-empty
+            if (fetchedData && Array.isArray(fetchedData) && fetchedData.length > 0) {
+              habitsData = fetchedData;
+            }
+          } catch (supabaseError) {
+            console.error('Supabase query error:', supabaseError);
+            // Continue with fallback data
+          }
         }
 
-        setHabits(habitsData);
+        setHabits(habitsData || []);
       } catch (error) {
         console.error('Error fetching habits data:', error);
         // Fallback to static data on error
-        setHabits(fallbackHabits);
+        setHabits(fallbackHabits || []);
       } finally {
         setIsLoading(false);
       }

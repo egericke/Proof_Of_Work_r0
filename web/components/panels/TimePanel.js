@@ -23,6 +23,12 @@ export default function TimePanel({ dateRange }) {
     async function fetchData() {
       setIsLoading(true);
       try {
+        if (!dateRange || !dateRange.startDate || !dateRange.endDate) {
+          console.warn('TimePanel: Invalid dateRange provided, using fallback data');
+          setTimeEntries(fallbackTimeEntries);
+          return;
+        }
+
         const startDateStr = formatDateParam(dateRange.startDate);
         const endDateStr = formatDateParam(dateRange.endDate);
         const supabase = getSupabaseClient();
@@ -32,23 +38,37 @@ export default function TimePanel({ dateRange }) {
 
         // Fetch from Supabase if client is available
         if (supabase) {
-          const { data: fetchedData, error } = await supabase
-            .from('toggl_time')
-            .select('*')
-            .gte('date', startDateStr)
-            .lte('date', endDateStr)
-            .order('date', { ascending: true });
+          try {
+            const query = supabase
+              .from('toggl_time')
+              .select('*')
+              .gte('date', startDateStr)
+              .lte('date', endDateStr)
+              .order('date', { ascending: true });
 
-          if (error) throw error;
-          // Use fetched data if available and non-empty
-          if (fetchedData?.length > 0) timeData = fetchedData;
+            // Use execute for mockClient or standard await pattern
+            const result = query.execute 
+              ? await query.execute() 
+              : await query;
+              
+            const { data: fetchedData, error } = result;
+
+            if (error) throw error;
+            // Use fetched data if available and non-empty
+            if (fetchedData && Array.isArray(fetchedData) && fetchedData.length > 0) {
+              timeData = fetchedData;
+            }
+          } catch (supabaseError) {
+            console.error('Supabase query error:', supabaseError);
+            // Continue with fallback data
+          }
         }
 
-        setTimeEntries(timeData);
+        setTimeEntries(timeData || []);
       } catch (error) {
         console.error('Error fetching time data:', error);
         // Fallback to static data on error
-        setTimeEntries(fallbackTimeEntries);
+        setTimeEntries(fallbackTimeEntries || []);
       } finally {
         setIsLoading(false);
       }

@@ -41,38 +41,71 @@ function FitnessPanel({ dateRange }) {
     async function fetchData() {
       setIsLoading(true);
       try {
+        if (!dateRange || !dateRange.startDate || !dateRange.endDate) {
+          console.warn('FitnessPanel: Invalid dateRange provided, using fallback data');
+          setWorkouts(fallbackWorkouts || []);
+          setVo2MaxHistory(fallbackVo2MaxHistory || []);
+          return;
+        }
+
         const startDateStr = formatDateParam(dateRange.startDate);
         const endDateStr = formatDateParam(dateRange.endDate);
         const supabase = getSupabaseClient();
 
-        let workoutsData = fallbackWorkouts;
-        let vo2MaxData = fallbackVo2MaxHistory;
+        let workoutsData = fallbackWorkouts || [];
+        let vo2MaxData = fallbackVo2MaxHistory || [];
 
         if (supabase) {
-          const { data: workoutsFetched, error: workoutsError } = await supabase
-            .from('workout_stats')
-            .select('*')
-            .gte('date', startDateStr)
-            .lte('date', endDateStr)
-            .order('date', { ascending: false });
-          if (!workoutsError && workoutsFetched?.length > 0) workoutsData = workoutsFetched;
+          try {
+            // Workout stats query
+            const workoutsQuery = supabase
+              .from('workout_stats')
+              .select('*')
+              .gte('date', startDateStr)
+              .lte('date', endDateStr)
+              .order('date', { ascending: false });
 
-          const { data: vo2MaxFetched, error: vo2MaxError } = await supabase
-            .from('vo2max_tests')
-            .select('*')
-            .gte('test_date', startDateStr)
-            .lte('test_date', endDateStr)
-            .order('test_date', { ascending: true });
-          if (!vo2MaxError && vo2MaxFetched?.length > 0) vo2MaxData = vo2MaxFetched;
+            // VO2 max query
+            const vo2MaxQuery = supabase
+              .from('vo2max_tests')
+              .select('*')
+              .gte('test_date', startDateStr)
+              .lte('test_date', endDateStr)
+              .order('test_date', { ascending: true });
+
+            // Use execute for mockClient or standard await pattern for workouts
+            const workoutsResult = workoutsQuery.execute 
+              ? await workoutsQuery.execute() 
+              : await workoutsQuery;
+            
+            // Use execute for mockClient or standard await pattern for vo2max
+            const vo2MaxResult = vo2MaxQuery.execute 
+              ? await vo2MaxQuery.execute() 
+              : await vo2MaxQuery;
+
+            const { data: workoutsFetched, error: workoutsError } = workoutsResult;
+            const { data: vo2MaxFetched, error: vo2MaxError } = vo2MaxResult;
+
+            if (!workoutsError && workoutsFetched && Array.isArray(workoutsFetched) && workoutsFetched.length > 0) {
+              workoutsData = workoutsFetched;
+            }
+
+            if (!vo2MaxError && vo2MaxFetched && Array.isArray(vo2MaxFetched) && vo2MaxFetched.length > 0) {
+              vo2MaxData = vo2MaxFetched;
+            }
+          } catch (supabaseError) {
+            console.error('Supabase query error:', supabaseError);
+            // Continue with fallback data
+          }
         }
 
         setWorkouts(workoutsData);
-        const totalDistance = (workoutsData || []).reduce((sum, w) => sum + (w.distance || 0), 0);
-        const totalCalories = (workoutsData || []).reduce((sum, w) => sum + (w.calories || 0), 0);
-        const totalTime = (workoutsData || []).reduce((sum, w) => sum + (w.time || 0), 0);
-        const heartRateWorkouts = (workoutsData || []).filter(w => w.avg_hr);
+        const totalDistance = (workoutsData || []).reduce((sum, w) => sum + (w?.distance || 0), 0);
+        const totalCalories = (workoutsData || []).reduce((sum, w) => sum + (w?.calories || 0), 0);
+        const totalTime = (workoutsData || []).reduce((sum, w) => sum + (w?.time || 0), 0);
+        const heartRateWorkouts = (workoutsData || []).filter(w => w && w.avg_hr);
         const avgHeartRate = heartRateWorkouts.length
-          ? heartRateWorkouts.reduce((sum, w) => sum + w.avg_hr, 0) / heartRateWorkouts.length
+          ? heartRateWorkouts.reduce((sum, w) => sum + (w?.avg_hr || 0), 0) / heartRateWorkouts.length
           : 0;
 
         setWorkoutStats({
@@ -84,8 +117,8 @@ function FitnessPanel({ dateRange }) {
         setVo2MaxHistory(vo2MaxData);
       } catch (error) {
         console.error('Error fetching fitness data:', error);
-        setWorkouts(fallbackWorkouts);
-        setVo2MaxHistory(fallbackVo2MaxHistory);
+        setWorkouts(fallbackWorkouts || []);
+        setVo2MaxHistory(fallbackVo2MaxHistory || []);
       } finally {
         setIsLoading(false);
       }
