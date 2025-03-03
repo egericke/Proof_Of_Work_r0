@@ -38,8 +38,14 @@ async function getVo2MaxData(req, res) {
         
       if (error) throw error;
       
+      // Always return a consistent data structure with safe defaults
       return res.status(200).json({
-        latest: data?.[0] || null,
+        latest: data?.[0] || { 
+          test_date: new Date().toISOString().split('T')[0],
+          vo2max_value: 0,
+          notes: 'No data available' 
+        },
+        history: data || [],
         success: true
       });
     }
@@ -61,27 +67,53 @@ async function getVo2MaxData(req, res) {
     
     if (error) throw error;
     
+    // Always ensure data is an array
+    const safeData = Array.isArray(data) ? data : [];
+    
     // Calculate trend if we have multiple data points
-    let trend = null;
-    if (data && data.length >= 2) {
-      const first = data[0].vo2max_value;
-      const last = data[data.length - 1].vo2max_value;
-      const change = last - first;
-      const percentChange = (change / first) * 100;
-      trend = Math.round(percentChange * 10) / 10; // Round to 1 decimal place
+    let trend = 0;
+    if (safeData.length >= 2) {
+      try {
+        const first = safeData[0]?.vo2max_value;
+        const last = safeData[safeData.length - 1]?.vo2max_value;
+        
+        // Only calculate if both values are valid numbers
+        if (typeof first === 'number' && typeof last === 'number' && first !== 0) {
+          const change = last - first;
+          const percentChange = (change / first) * 100;
+          trend = Math.round(percentChange * 10) / 10; // Round to 1 decimal place
+        }
+      } catch (error) {
+        console.error('Error calculating VO2Max trend:', error);
+      }
     }
     
+    // Create a safe default latest entry if there's no data
+    const latestEntry = safeData.length > 0 ? safeData[safeData.length - 1] : {
+      test_date: new Date().toISOString().split('T')[0],
+      vo2max_value: 0,
+      notes: 'No data available'
+    };
+    
     return res.status(200).json({
-      history: data || [],
-      latest: data?.[data.length - 1] || null,
+      history: safeData,
+      latest: latestEntry,
       trend,
       success: true
     });
   } catch (error) {
     console.error('API Error:', error);
+    // Even on error, return a consistent data structure with empty arrays
     return res.status(500).json({ 
       error: error.message || 'Failed to fetch VO2 Max data',
-      success: false
+      success: false,
+      history: [],
+      latest: {
+        test_date: new Date().toISOString().split('T')[0],
+        vo2max_value: 0,
+        notes: 'Error fetching data'
+      },
+      trend: 0
     });
   }
 }

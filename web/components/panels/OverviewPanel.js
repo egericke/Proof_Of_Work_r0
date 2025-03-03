@@ -66,8 +66,22 @@ export default function OverviewPanel({
       let vo2MaxTrend = fallbackVo2Max.trend;
       
       // Process Vo2Max data
-      if (Array.isArray(initialVo2MaxData) && initialVo2MaxData.length > 0 && initialVo2MaxData[0] !== null) {
-        vo2MaxValue = initialVo2MaxData[0]?.vo2max_value || vo2MaxValue;
+      if (Array.isArray(initialVo2MaxData)) {
+        // Filter for valid data entries first
+        const validEntries = initialVo2MaxData.filter(entry => 
+          entry !== null && 
+          entry !== undefined && 
+          typeof entry.vo2max_value === 'number' && 
+          !isNaN(entry.vo2max_value) &&
+          entry.vo2max_value > 0
+        );
+        
+        if (validEntries.length > 0) {
+          vo2MaxValue = validEntries[0].vo2max_value;
+          console.log('Found valid initial VO2Max value:', vo2MaxValue);
+        } else {
+          console.log('No valid initial VO2Max entries found');
+        }
       }
       
       // Process workout data
@@ -209,8 +223,22 @@ export default function OverviewPanel({
             const { data: habitsData, error: habitsError } = habitsResult;
 
             // Process VO2 max data
-            if (!vo2MaxError && vo2MaxData && Array.isArray(vo2MaxData) && vo2MaxData.length > 0 && vo2MaxData[0] !== null) {
-              vo2MaxValue = vo2MaxData[0]?.vo2max_value || vo2MaxValue;
+            if (!vo2MaxError && vo2MaxData && Array.isArray(vo2MaxData)) {
+              // Filter for valid data entries
+              const validEntries = vo2MaxData.filter(entry => 
+                entry !== null && 
+                entry !== undefined && 
+                typeof entry.vo2max_value === 'number' && 
+                !isNaN(entry.vo2max_value) &&
+                entry.vo2max_value > 0
+              );
+              
+              if (validEntries.length > 0) {
+                vo2MaxValue = validEntries[0].vo2max_value;
+                console.log('Found valid VO2Max value:', vo2MaxValue);
+              } else {
+                console.log('No valid VO2Max entries found');
+              }
             }
 
             // Process workouts data

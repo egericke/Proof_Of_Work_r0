@@ -223,12 +223,49 @@ function FitnessPanel({
 
   // Use useMemo for chart data to avoid unnecessary recalculations
   const vo2MaxChartData = useMemo(() => {
-    // Validate vo2MaxHistory is an array and filter out any null/undefined entries
-    const validHistory = Array.isArray(vo2MaxHistory) ? vo2MaxHistory.filter(d => d !== null && d !== undefined) : [];
-    console.log(`Preparing VO2Max chart with ${validHistory.length} data points`);
-    
-    // Return default empty chart structure if no valid data
-    if (validHistory.length === 0) {
+    try {
+      // Validate vo2MaxHistory is an array and filter out any null/undefined entries
+      const validHistory = Array.isArray(vo2MaxHistory) ? vo2MaxHistory.filter(d => d !== null && d !== undefined) : [];
+      
+      // Filter out entries with invalid vo2max_value (must be a number > 0)
+      const filteredHistory = validHistory.filter(d => d && typeof d.vo2max_value === 'number' && !isNaN(d.vo2max_value) && d.vo2max_value > 0);
+      
+      console.log(`Preparing VO2Max chart with ${filteredHistory.length} valid data points out of ${validHistory.length} total`);
+      
+      // Return default empty chart structure if no valid data
+      if (filteredHistory.length === 0) {
+        return {
+          labels: [],
+          datasets: [
+            {
+              label: 'VO₂ Max',
+              data: [],
+              borderColor: 'rgba(139, 92, 246, 0.8)',
+              backgroundColor: 'rgba(139, 92, 246, 0.2)',
+              tension: 0.3,
+              fill: true,
+            },
+          ],
+        };
+      }
+      
+      // Create chart data with validated entries
+      return {
+        labels: filteredHistory.map(d => d && typeof d.test_date === 'string' ? d.test_date : ''),
+        datasets: [
+          {
+            label: 'VO₂ Max',
+            data: filteredHistory.map(d => d.vo2max_value), // We already filtered for valid values above
+            borderColor: 'rgba(139, 92, 246, 0.8)',
+            backgroundColor: 'rgba(139, 92, 246, 0.2)',
+            tension: 0.3,
+            fill: true,
+          },
+        ],
+      };
+    } catch (error) {
+      console.error('Error preparing VO2Max chart data:', error);
+      // Return a valid empty chart structure in case of any error
       return {
         labels: [],
         datasets: [
@@ -243,20 +280,6 @@ function FitnessPanel({
         ],
       };
     }
-    
-    return {
-      labels: validHistory.map(d => d && typeof d.test_date === 'string' ? d.test_date : ''),
-      datasets: [
-        {
-          label: 'VO₂ Max',
-          data: validHistory.map(d => d && typeof d.vo2max_value === 'number' ? d.vo2max_value : 0),
-          borderColor: 'rgba(139, 92, 246, 0.8)',
-          backgroundColor: 'rgba(139, 92, 246, 0.2)',
-          tension: 0.3,
-          fill: true,
-        },
-      ],
-    };
   }, [vo2MaxHistory]);
 
   // Use useMemo for activity types calculation
@@ -371,26 +394,55 @@ function FitnessPanel({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 bg-gray-800 bg-opacity-60 rounded-lg border border-blue-500/20 p-4 backdrop-blur-sm">
           <h3 className="text-lg font-medium text-blue-300 mb-4">VO₂ Max Trend</h3>
-          {vo2MaxHistory && vo2MaxHistory.length > 0 ? (
-            <DataChart
-              data={vo2MaxChartData}
-              type="line"
-              height={300}
-              isLoading={isLoading}
-              options={{
-                scales: {
-                  y: {
-                    min: Math.max(0, Math.min(...vo2MaxHistory.filter(d => d && typeof d.vo2max_value === 'number').map(d => d.vo2max_value)) - 5),
-                    max: Math.max(...vo2MaxHistory.filter(d => d && typeof d.vo2max_value === 'number').map(d => d.vo2max_value)) + 5,
-                  },
-                },
-              }}
-            />
-          ) : (
-            <div className="flex items-center justify-center h-[300px] text-gray-400">
-              <p>No VO₂ Max data available for the selected date range</p>
-            </div>
-          )}
+          {(() => {
+            // Create a safer validation of the data first
+            const validData = Array.isArray(vo2MaxHistory) 
+              ? vo2MaxHistory.filter(d => d && typeof d.vo2max_value === 'number' && !isNaN(d.vo2max_value) && d.vo2max_value > 0)
+              : [];
+              
+            if (validData.length === 0) {
+              return (
+                <div className="flex items-center justify-center h-[300px] text-gray-400">
+                  <p>No VO₂ Max data available for the selected date range</p>
+                </div>
+              );
+            }
+            
+            // Calculate min and max with safety checks
+            try {
+              const validValues = validData.map(d => d.vo2max_value);
+              const minValue = Math.min(...validValues);
+              const maxValue = Math.max(...validValues);
+              
+              // For chart display, set reasonable bounds
+              const displayMin = Math.max(0, minValue - 5);
+              const displayMax = maxValue + 5;
+              
+              return (
+                <DataChart
+                  data={vo2MaxChartData}
+                  type="line"
+                  height={300}
+                  isLoading={isLoading}
+                  options={{
+                    scales: {
+                      y: {
+                        min: displayMin,
+                        max: displayMax,
+                      },
+                    },
+                  }}
+                />
+              );
+            } catch (error) {
+              console.error('Error calculating chart scales:', error);
+              return (
+                <div className="flex items-center justify-center h-[300px] text-gray-400">
+                  <p>Error displaying VO₂ Max data. Please try again later.</p>
+                </div>
+              );
+            }
+          })()}
         </div>
         <div className="bg-gray-800 bg-opacity-60 rounded-lg border border-blue-500/20 p-4 backdrop-blur-sm">
           <h3 className="text-lg font-medium text-blue-300 mb-4">Activity Types</h3>
