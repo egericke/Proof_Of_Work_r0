@@ -1,5 +1,5 @@
 // web/components/panels/FitnessPanel.js
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import DataChart from '../ui/DataChart';
 import WorkoutCard from '../ui/WorkoutCard';
 import MetricInput from '../ui/MetricInput';
@@ -17,7 +17,7 @@ const fallbackVo2MaxHistory = [
   { test_date: '2023-01-25', vo2max_value: 44.1 },
 ];
 
-function FitnessPanel({ dateRange }) {
+function FitnessPanel({ dateRange, supabase: propSupabase }) {
   // Ensure dateRange is defined with fallback values
   if (!dateRange) {
     dateRange = {
@@ -28,6 +28,7 @@ function FitnessPanel({ dateRange }) {
   const [workouts, setWorkouts] = useState([]);
   const [vo2MaxHistory, setVo2MaxHistory] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [workoutStats, setWorkoutStats] = useState({
     totalDistance: 0,
     totalCalories: 0,
@@ -35,7 +36,17 @@ function FitnessPanel({ dateRange }) {
     avgHeartRate: 0,
   });
 
-  const formatDateParam = (date) => date.toISOString().split('T')[0];
+  const formatDateParam = (date) => {
+    try {
+      if (!(date instanceof Date) || isNaN(date.getTime())) {
+        throw new Error('Invalid date object');
+      }
+      return date.toISOString().split('T')[0];
+    } catch (err) {
+      console.error('Date formatting error:', err);
+      return new Date().toISOString().split('T')[0]; // Use today as fallback
+    }
+  };
 
   useEffect(() => {
     async function fetchData() {
@@ -50,7 +61,7 @@ function FitnessPanel({ dateRange }) {
 
         const startDateStr = formatDateParam(dateRange.startDate);
         const endDateStr = formatDateParam(dateRange.endDate);
-        const supabase = getSupabaseClient();
+        const supabase = propSupabase || getSupabaseClient();
 
         let workoutsData = fallbackWorkouts || [];
         let vo2MaxData = fallbackVo2MaxHistory || [];
@@ -83,15 +94,50 @@ function FitnessPanel({ dateRange }) {
               ? await vo2MaxQuery.execute() 
               : await vo2MaxQuery;
 
-            const { data: workoutsFetched, error: workoutsError } = workoutsResult;
-            const { data: vo2MaxFetched, error: vo2MaxError } = vo2MaxResult;
+            const { data: workoutsFetched, error: workoutsError } = workoutsResult || { data: null, error: null };
 
-            if (!workoutsError && workoutsFetched && Array.isArray(workoutsFetched) && workoutsFetched.length > 0) {
-              workoutsData = workoutsFetched;
+            // Detailed error logging to help debug Vercel deployment issues
+            if (workoutsError) {
+              console.error('Supabase fitness query error details:', {
+                message: workoutsError.message,
+                code: workoutsError.code,
+                details: workoutsError.details,
+                hint: workoutsError.hint
+              });
+              setError(workoutsError.message);
+              throw workoutsError;
             }
 
-            if (!vo2MaxError && vo2MaxFetched && Array.isArray(vo2MaxFetched) && vo2MaxFetched.length > 0) {
+            const { data: vo2MaxFetched, error: vo2MaxError } = vo2MaxResult || { data: null, error: null };
+
+            // Detailed error logging to help debug Vercel deployment issues
+            if (vo2MaxError) {
+              console.error('Supabase vo2max query error details:', {
+                message: vo2MaxError.message,
+                code: vo2MaxError.code,
+                details: vo2MaxError.details,
+                hint: vo2MaxError.hint
+              });
+              setError(vo2MaxError.message);
+              throw vo2MaxError;
+            }
+            
+            // Log the actual data received for debugging
+            console.log('Workouts data received:', workoutsFetched ? 
+              `Array with ${workoutsFetched.length} items` : 'No data (null/undefined)');
+            console.log('VO2Max data received:', vo2MaxFetched ? 
+              `Array with ${vo2MaxFetched.length} items` : 'No data (null/undefined)');
+              
+            if (workoutsFetched && Array.isArray(workoutsFetched) && workoutsFetched.length > 0) {
+              workoutsData = workoutsFetched;
+            } else {
+              console.log('Using fallback data for workouts since query returned empty results');
+            }
+            
+            if (vo2MaxFetched && Array.isArray(vo2MaxFetched) && vo2MaxFetched.length > 0) {
               vo2MaxData = vo2MaxFetched;
+            } else {
+              console.log('Using fallback data for VO2Max since query returned empty results');
             }
           } catch (supabaseError) {
             console.error('Supabase query error:', supabaseError);
@@ -119,6 +165,7 @@ function FitnessPanel({ dateRange }) {
         console.error('Error fetching fitness data:', error);
         setWorkouts(fallbackWorkouts || []);
         setVo2MaxHistory(fallbackVo2MaxHistory || []);
+        setError(`Failed to load fitness data: ${error.message || 'Unknown error'}`);
       } finally {
         setIsLoading(false);
       }
@@ -126,64 +173,118 @@ function FitnessPanel({ dateRange }) {
     fetchData();
   }, [dateRange]);
 
-  const vo2MaxChartData = {
-    labels: (vo2MaxHistory || []).map(d => d?.test_date || ''),
-    datasets: [
-      {
-        label: 'VO₂ Max',
-        data: (vo2MaxHistory || []).map(d => d?.vo2max_value || 0),
-        borderColor: 'rgba(139, 92, 246, 0.8)',
-        backgroundColor: 'rgba(139, 92, 246, 0.2)',
-        tension: 0.3,
-        fill: true,
-      },
-    ],
-  };
+  // Use useMemo for chart data to avoid unnecessary recalculations
+  const vo2MaxChartData = useMemo(() => {
+    // Validate vo2MaxHistory is an array and filter out any null/undefined entries
+    const validHistory = Array.isArray(vo2MaxHistory) ? vo2MaxHistory.filter(d => d !== null) : [];
+    console.log(`Preparing VO2Max chart with ${validHistory.length} data points`);
+    
+    return {
+      labels: validHistory.map(d => d && typeof d.test_date === 'string' ? d.test_date : ''),
+      datasets: [
+        {
+          label: 'VO₂ Max',
+          data: validHistory.map(d => d && typeof d.vo2max_value === 'number' ? d.vo2max_value : 0),
+          borderColor: 'rgba(139, 92, 246, 0.8)',
+          backgroundColor: 'rgba(139, 92, 246, 0.2)',
+          tension: 0.3,
+          fill: true,
+        },
+      ],
+    };
+  }, [vo2MaxHistory]);
 
-  const activityTypes = (workouts || []).reduce((acc, workout) => {
-    if (!workout) return acc;
-    const type = workout.activity_type || 'unknown';
-    acc[type] = (acc[type] || 0) + 1;
-    return acc;
-  }, {});
-  
-  const activityChartData = {
-    labels: Object.keys(activityTypes || {}),
-    datasets: [
-      {
-        data: Object.values(activityTypes || {}),
-        backgroundColor: ['rgba(59, 130, 246, 0.8)', 'rgba(16, 185, 129, 0.8)', 'rgba(239, 68, 68, 0.8)', 'rgba(245, 158, 11, 0.8)', 'rgba(139, 92, 246, 0.8)'],
-        borderWidth: 0,
-      },
-    ],
-  };
+  // Use useMemo for activity types calculation
+  const activityChartData = useMemo(() => {
+    // Validate workouts is an array and filter out any null/undefined entries
+    const validWorkouts = Array.isArray(workouts) ? workouts.filter(w => w !== null) : [];
+    console.log(`Preparing activity chart with ${validWorkouts.length} workouts`);
+    
+    const activityTypes = validWorkouts.reduce((acc, workout) => {
+      const type = workout && workout.activity_type ? workout.activity_type : 'unknown';
+      acc[type] = (acc[type] || 0) + 1;
+      return acc;
+    }, {});
+    
+    return {
+      labels: Object.keys(activityTypes),
+      datasets: [
+        {
+          data: Object.values(activityTypes),
+          backgroundColor: ['rgba(59, 130, 246, 0.8)', 'rgba(16, 185, 129, 0.8)', 'rgba(239, 68, 68, 0.8)', 'rgba(245, 158, 11, 0.8)', 'rgba(139, 92, 246, 0.8)'],
+          borderWidth: 0,
+        },
+      ],
+    };
+  }, [workouts]);
 
   const handleVo2MaxSubmit = async (value) => {
     try {
-      const supabase = getSupabaseClient();
+      setError(null);
+      const supabase = propSupabase || getSupabaseClient();
       if (!supabase) throw new Error('Supabase client not available');
       const today = new Date().toISOString().split('T')[0];
       const { error } = await supabase
         .from('vo2max_tests')
         .upsert({ test_date: today, vo2max_value: parseFloat(value), notes: '' }, { onConflict: 'test_date' });
-      if (error) throw error;
+      if (error) {
+        console.error('Error saving VO2 max:', error);
+        setError(`Failed to save VO2 max: ${error.message}`);
+        throw error;
+      }
 
-      const { data: refreshData, error: refreshError } = await supabase
+      const query = supabase
         .from('vo2max_tests')
         .select('*')
         .gte('test_date', formatDateParam(dateRange.startDate))
         .lte('test_date', formatDateParam(dateRange.endDate))
         .order('test_date', { ascending: true });
-      if (refreshError) throw refreshError;
-      if (refreshData) setVo2MaxHistory(refreshData);
+        
+      const result = query.execute 
+        ? await query.execute() 
+        : await query;
+      
+      const { data: refreshData, error: refreshError } = result || { data: null, error: null };
+      
+      if (refreshError) {
+        console.error('Error refreshing VO2 max data:', refreshError);
+        setError(`Failed to refresh VO2 max data: ${refreshError.message}`);
+        throw refreshError;
+      }
+      
+      if (refreshData && Array.isArray(refreshData)) {
+        setVo2MaxHistory(refreshData);
+      }
       return true;
     } catch (error) {
       console.error('Error saving VO2 Max:', error);
+      setError(`Failed to save VO2 max: ${error.message || 'Unknown error'}`);
       return false;
     }
   };
 
-  console.log('Rendering FitnessPanel with workouts:', workouts);
+  console.log('Rendering FitnessPanel with workouts:', Array.isArray(workouts) ? workouts.length : 'not an array');
+
+  // If there's an error, show it to the user
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <h2 className="text-2xl font-orbitron text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500">
+          Fitness Tracker
+        </h2>
+        <div className="bg-red-900/20 border border-red-500/40 rounded-lg p-6 text-center">
+          <h3 className="text-xl text-red-400 mb-3">Error Loading Fitness Data</h3>
+          <p className="text-gray-300 mb-4">{error}</p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded text-white"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

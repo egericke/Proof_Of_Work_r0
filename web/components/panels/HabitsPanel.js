@@ -1,5 +1,5 @@
 // web/components/panels/HabitsPanel.js
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import HabitCalendar from '../ui/HabitCalendar';
 import { getSupabaseClient } from '../../utils/supabaseClient';
 
@@ -10,13 +10,24 @@ const fallbackHabits = [
   { habit_date: '2023-01-10', habit_name: 'Exercise', completed: false },
 ];
 
-export default function HabitsPanel({ dateRange }) {
+export default function HabitsPanel({ dateRange, supabase: propSupabase }) {
   // Initialize state as an empty array
   const [habits, setHabits] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   // Utility to format dates for Supabase queries
-  const formatDateParam = (date) => date.toISOString().split('T')[0];
+  const formatDateParam = (date) => {
+    try {
+      if (!(date instanceof Date) || isNaN(date.getTime())) {
+        throw new Error('Invalid date object');
+      }
+      return date.toISOString().split('T')[0];
+    } catch (err) {
+      console.error('Date formatting error:', err);
+      return new Date().toISOString().split('T')[0]; // Use today as fallback
+    }
+  };
 
   useEffect(() => {
     async function fetchData() {
@@ -30,7 +41,8 @@ export default function HabitsPanel({ dateRange }) {
 
         const startDateStr = formatDateParam(dateRange.startDate);
         const endDateStr = formatDateParam(dateRange.endDate);
-        const supabase = getSupabaseClient();
+        // Use passed in Supabase client if available or get a new one
+        const supabase = propSupabase || getSupabaseClient();
 
         // Default to fallback data
         let habitsData = fallbackHabits;
@@ -50,12 +62,29 @@ export default function HabitsPanel({ dateRange }) {
               ? await query.execute() 
               : await query;
 
-            const { data: fetchedData, error } = result;
+            const { data: fetchedData, error: queryError } = result || { data: null, error: null };
 
-            if (error) throw error;
+            // Detailed error logging to help debug Vercel deployment issues
+            if (queryError) {
+              console.error('Supabase habits query error details:', {
+                message: queryError.message,
+                code: queryError.code,
+                details: queryError.details,
+                hint: queryError.hint
+              });
+              setError(queryError.message);
+              throw queryError;
+            }
+            
+            // Log the actual data received for debugging
+            console.log('Habits data received:', fetchedData ? 
+              `Array with ${fetchedData.length} items` : 'No data (null/undefined)');
+              
             // Use fetched data if available and non-empty
             if (fetchedData && Array.isArray(fetchedData) && fetchedData.length > 0) {
               habitsData = fetchedData;
+            } else {
+              console.log('Using fallback data for habits since query returned empty results');
             }
           } catch (supabaseError) {
             console.error('Supabase query error:', supabaseError);
@@ -75,15 +104,43 @@ export default function HabitsPanel({ dateRange }) {
     fetchData();
   }, [dateRange]);
 
-  // Group habits by date for calendar view
-  const habitsByDate = (habits || []).reduce((acc, habit) => {
-    if (!acc[habit.habit_date]) acc[habit.habit_date] = [];
-    acc[habit.habit_date].push(habit);
-    return acc;
-  }, {});
+  // Group habits by date for calendar view - with extra validation
+  const habitsByDate = React.useMemo(() => {
+    // Ensure habits is always an array before reducing
+    const safeHabits = Array.isArray(habits) ? habits : [];
+    console.log(`Calculating habitsByDate with ${safeHabits.length} habits`);
+    
+    return safeHabits.reduce((acc, habit) => {
+      if (!habit || !habit.habit_date) return acc;
+      if (!acc[habit.habit_date]) acc[habit.habit_date] = [];
+      acc[habit.habit_date].push(habit);
+      return acc;
+    }, {});
+  }, [habits]);
 
   // Debug log to inspect data before rendering
-  console.log('Rendering HabitsPanel with habits:', habits);
+  console.log('Rendering HabitsPanel with habits:', Array.isArray(habits) ? habits.length : 'not an array');
+  
+  // If there's an error, show it to the user
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <h2 className="text-2xl font-orbitron text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500">
+          Habits Tracker
+        </h2>
+        <div className="bg-red-900/20 border border-red-500/40 rounded-lg p-6 text-center">
+          <h3 className="text-xl text-red-400 mb-3">Error Loading Habits</h3>
+          <p className="text-gray-300 mb-4">{error}</p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded text-white"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

@@ -21,22 +21,27 @@ export default function DashboardLayout() {
     endDate: new Date(),
   });
   const [userData, setUserData] = useState({ name: 'Dashboard User', avatar: '/avatar-placeholder.png' });
+  const [supabaseInitialized, setSupabaseInitialized] = useState(false);
 
-  // Initialize Supabase client
-  const supabase = getSupabaseClient();
+  // Initialize Supabase client - ensure we don't fetch data until initialization is complete
+  const [supabase, setSupabase] = useState(null);
 
   useEffect(() => {
     const initApp = async () => {
       try {
+        // Initialize Supabase client
+        const supabaseClient = getSupabaseClient();
+        setSupabase(supabaseClient);
+        
         // Check supabase connection
-        if (!supabase) {
+        if (!supabaseClient) {
           console.warn('Supabase client could not be initialized. Using fallback data.');
         } else {
           console.log('Supabase client initialized successfully.');
           
           // Test a simple query to verify connection
           try {
-            const { data, error } = await supabase.from('workout_stats').select('count');
+            const { data, error } = await supabaseClient.from('workout_stats').select('count');
             if (error) {
               console.warn('Supabase connection test failed:', error.message);
             } else {
@@ -47,16 +52,20 @@ export default function DashboardLayout() {
           }
         }
         
+        // Mark Supabase as fully initialized
+        setSupabaseInitialized(true);
+        
         // Simulate loading for better UX
         setTimeout(() => setIsLoading(false), 1000);
       } catch (error) {
         console.error('Error initializing app:', error);
         setLoadError(error ? error.message : 'Unknown error initializing app');
+        setSupabaseInitialized(true); // Mark as initialized even on error so components fall back to mock data
         setTimeout(() => setIsLoading(false), 1000);
       }
     };
     initApp();
-  }, [supabase]); // Add supabase as a dependency
+  }, []); // No dependencies - we only want to run this once
 
   const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
 
@@ -75,36 +84,50 @@ export default function DashboardLayout() {
         </div>
       );
     }
+    
+    // Don't render panels until Supabase is initialized
+    if (!supabaseInitialized) {
+      return <LoadingOverlay message="Initializing data connection..." />;
+    }
 
+    // Initialize empty panel props to avoid undefined errors
+    const panelProps = {
+      dateRange: dateRange || {
+        startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+        endDate: new Date(),
+      },
+      supabase
+    };
+    
     switch (activePanel) {
       case 'overview':
         return (
           <ErrorBoundary componentName="OverviewPanel">
-            <OverviewPanel dateRange={dateRange} />
+            <OverviewPanel {...panelProps} />
           </ErrorBoundary>
         );
       case 'fitness':
         return (
           <ErrorBoundary componentName="FitnessPanel">
-            <FitnessPanel dateRange={dateRange} />
+            <FitnessPanel {...panelProps} />
           </ErrorBoundary>
         );
       case 'time':
         return (
           <ErrorBoundary componentName="TimePanel">
-            <TimePanel dateRange={dateRange} />
+            <TimePanel {...panelProps} />
           </ErrorBoundary>
         );
       case 'habits':
         return (
           <ErrorBoundary componentName="HabitsPanel">
-            <HabitsPanel dateRange={dateRange} />
+            <HabitsPanel {...panelProps} />
           </ErrorBoundary>
         );
       default:
         return (
           <ErrorBoundary componentName="OverviewPanel">
-            <OverviewPanel dateRange={dateRange} />
+            <OverviewPanel {...panelProps} />
           </ErrorBoundary>
         );
     }

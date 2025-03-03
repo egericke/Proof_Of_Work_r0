@@ -1,5 +1,5 @@
 // web/components/panels/OverviewPanel.js
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import StatsCard from '../ui/StatsCard';
 import DataChart from '../ui/DataChart';
 import QuoteCard from '../ui/QuoteCard';
@@ -14,7 +14,7 @@ const fallbackActivities = [
   { type: 'habit', title: 'Daily Habits', date: '2023-01-10', value: '4/5 complete' },
 ];
 
-export default function OverviewPanel({ dateRange }) {
+export default function OverviewPanel({ dateRange, supabase: propSupabase }) {
   const [stats, setStats] = useState({
     vo2Max: { value: 0, trend: 0 },
     workouts: { value: 0, trend: 0 },
@@ -24,12 +24,24 @@ export default function OverviewPanel({ dateRange }) {
   const [activityData, setActivityData] = useState({ labels: [], datasets: [] });
   const [recentActivities, setRecentActivities] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const formatDateParam = (date) => date.toISOString().split('T')[0];
+  const formatDateParam = (date) => {
+    try {
+      if (!(date instanceof Date) || isNaN(date.getTime())) {
+        throw new Error('Invalid date object');
+      }
+      return date.toISOString().split('T')[0];
+    } catch (err) {
+      console.error('Date formatting error:', err);
+      return new Date().toISOString().split('T')[0]; // Use today as fallback
+    }
+  };
 
   useEffect(() => {
     async function fetchData() {
       setIsLoading(true);
+      setError(null);
       try {
         if (!dateRange || !dateRange.startDate || !dateRange.endDate) {
           console.warn('OverviewPanel: Invalid dateRange provided, using fallback data');
@@ -39,7 +51,7 @@ export default function OverviewPanel({ dateRange }) {
 
         const startDateStr = formatDateParam(dateRange.startDate);
         const endDateStr = formatDateParam(dateRange.endDate);
-        const supabase = getSupabaseClient();
+        const supabase = propSupabase || getSupabaseClient();
 
         let vo2MaxValue = fallbackVo2Max.value;
         let vo2MaxTrend = fallbackVo2Max.trend;
@@ -181,6 +193,7 @@ export default function OverviewPanel({ dateRange }) {
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
         setRecentActivities(fallbackActivities || []);
+        setError(`Failed to load dashboard data: ${error.message || 'Unknown error'}`);
       } finally {
         setIsLoading(false);
       }
@@ -188,8 +201,34 @@ export default function OverviewPanel({ dateRange }) {
     fetchData();
   }, [dateRange]);
 
-  console.log('Rendering OverviewPanel with recentActivities:', recentActivities);
+  // Use useMemo for validating and processing recent activities
+  const validActivities = useMemo(() => {
+    return Array.isArray(recentActivities) ? recentActivities.filter(activity => activity !== null) : [];
+  }, [recentActivities]);
 
+  console.log('Rendering OverviewPanel with recentActivities:', validActivities.length);
+
+  // If there's an error, show it to the user
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <h2 className="text-2xl font-orbitron text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500">
+          Dashboard Overview
+        </h2>
+        <div className="bg-red-900/20 border border-red-500/40 rounded-lg p-6 text-center">
+          <h3 className="text-xl text-red-400 mb-3">Error Loading Dashboard Data</h3>
+          <p className="text-gray-300 mb-4">{error}</p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded text-white"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+  
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-orbitron text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500">
@@ -254,7 +293,7 @@ export default function OverviewPanel({ dateRange }) {
             quote="Consistency over intensity. Those who show up every day outperform those who show up occasionally with maximum effort."
             author="James Clear"
           />
-          <ActivityFeed activities={recentActivities} isLoading={isLoading} />
+          <ActivityFeed activities={validActivities} isLoading={isLoading} />
         </div>
       </div>
       <div className="bg-gray-800 bg-opacity-60 rounded-lg border border-blue-500/20 p-6 backdrop-blur-sm">

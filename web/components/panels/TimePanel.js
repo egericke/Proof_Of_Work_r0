@@ -1,5 +1,5 @@
 // web/components/panels/TimePanel.js
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import DataChart from '../ui/DataChart';
 import TimeCard from '../ui/TimeCard';
 import { getSupabaseClient } from '../../utils/supabaseClient';
@@ -11,13 +11,24 @@ const fallbackTimeEntries = [
   { date: '2023-01-11', bucket: 'Deep Work', hours: 3.8 },
 ];
 
-export default function TimePanel({ dateRange }) {
+export default function TimePanel({ dateRange, supabase: propSupabase }) {
   // Initialize state as an empty array to avoid undefined errors
   const [timeEntries, setTimeEntries] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   // Utility to format dates for Supabase queries
-  const formatDateParam = (date) => date.toISOString().split('T')[0];
+  const formatDateParam = (date) => {
+    try {
+      if (!(date instanceof Date) || isNaN(date.getTime())) {
+        throw new Error('Invalid date object');
+      }
+      return date.toISOString().split('T')[0];
+    } catch (err) {
+      console.error('Date formatting error:', err);
+      return new Date().toISOString().split('T')[0]; // Use today as fallback
+    }
+  };
 
   useEffect(() => {
     async function fetchData() {
@@ -31,7 +42,7 @@ export default function TimePanel({ dateRange }) {
 
         const startDateStr = formatDateParam(dateRange.startDate);
         const endDateStr = formatDateParam(dateRange.endDate);
-        const supabase = getSupabaseClient();
+        const supabase = propSupabase || getSupabaseClient();
 
         // Default to fallback data
         let timeData = fallbackTimeEntries;
@@ -51,12 +62,29 @@ export default function TimePanel({ dateRange }) {
               ? await query.execute() 
               : await query;
               
-            const { data: fetchedData, error } = result;
+            const { data: fetchedData, error: queryError } = result || { data: null, error: null };
 
-            if (error) throw error;
+            // Detailed error logging to help debug Vercel deployment issues
+            if (queryError) {
+              console.error('Supabase time query error details:', {
+                message: queryError.message,
+                code: queryError.code,
+                details: queryError.details,
+                hint: queryError.hint
+              });
+              setError(queryError.message);
+              throw queryError;
+            }
+            
+            // Log the actual data received for debugging
+            console.log('Time entries data received:', fetchedData ? 
+              `Array with ${fetchedData.length} items` : 'No data (null/undefined)');
+              
             // Use fetched data if available and non-empty
             if (fetchedData && Array.isArray(fetchedData) && fetchedData.length > 0) {
               timeData = fetchedData;
+            } else {
+              console.log('Using fallback data for time entries since query returned empty results');
             }
           } catch (supabaseError) {
             console.error('Supabase query error:', supabaseError);
@@ -69,6 +97,7 @@ export default function TimePanel({ dateRange }) {
         console.error('Error fetching time data:', error);
         // Fallback to static data on error
         setTimeEntries(fallbackTimeEntries || []);
+        setError('Failed to load time data: ' + (error.message || 'Unknown error'));
       } finally {
         setIsLoading(false);
       }
@@ -76,30 +105,58 @@ export default function TimePanel({ dateRange }) {
     fetchData();
   }, [dateRange]);
 
-  // Prepare chart data for time distribution
-  const chartData = {
-    labels: [...new Set((timeEntries || []).map((entry) => entry.date))],
-    datasets: [
-      {
-        label: 'Deep Work',
-        data: (timeEntries || [])
-          .filter((entry) => entry.bucket === 'Deep Work')
-          .map((entry) => entry.hours),
-        backgroundColor: 'rgba(54, 162, 235, 0.8)',
-      },
-      {
-        label: 'Meetings',
-        data: (timeEntries || [])
-          .filter((entry) => entry.bucket === 'Meetings')
-          .map((entry) => entry.hours),
-        backgroundColor: 'rgba(255, 99, 132, 0.8)',
-      },
-      // Additional buckets can be added here
-    ],
-  };
+  // Process chart data with additional validation
+  const chartData = useMemo(() => {
+    // Safety check for timeEntries
+    const safeEntries = Array.isArray(timeEntries) ? timeEntries : [];
+    console.log(`Preparing chart data with ${safeEntries.length} time entries`);
+    
+    return {
+      // Use Set for unique dates, with fallback to empty array if map fails
+      labels: [...new Set(safeEntries.map(entry => entry?.date || '').filter(Boolean))],
+      datasets: [
+        {
+          label: 'Deep Work',
+          data: safeEntries
+            .filter(entry => entry?.bucket === 'Deep Work')
+            .map(entry => entry?.hours || 0),
+          backgroundColor: 'rgba(54, 162, 235, 0.8)',
+        },
+        {
+          label: 'Meetings',
+          data: safeEntries
+            .filter(entry => entry?.bucket === 'Meetings')
+            .map(entry => entry?.hours || 0),
+          backgroundColor: 'rgba(255, 99, 132, 0.8)',
+        },
+        // Additional buckets can be added here
+      ],
+    };
+  }, [timeEntries]);
 
   // Debug log to inspect data before rendering
-  console.log('Rendering TimePanel with timeEntries:', timeEntries);
+  console.log('Rendering TimePanel with timeEntries:', Array.isArray(timeEntries) ? timeEntries.length : 'not an array');
+  
+  // If there's an error, show it to the user
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <h2 className="text-2xl font-orbitron text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500">
+          Time Tracking
+        </h2>
+        <div className="bg-red-900/20 border border-red-500/40 rounded-lg p-6 text-center">
+          <h3 className="text-xl text-red-400 mb-3">Error Loading Time Data</h3>
+          <p className="text-gray-300 mb-4">{error}</p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded text-white"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

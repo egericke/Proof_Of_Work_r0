@@ -1,7 +1,7 @@
 // web/components/LoadingOverlay.js
 import React, { useState, useEffect } from 'react';
 
-export default function LoadingOverlay() {
+export default function LoadingOverlay({ message }) {
   const [loadingTime, setLoadingTime] = useState(0);
   const [showDebugInfo, setShowDebugInfo] = useState(false);
   
@@ -56,7 +56,7 @@ export default function LoadingOverlay() {
         <h2 className="text-xl mt-6 text-white font-bold">
           MY DAILY PROOF
         </h2>
-        <p className="text-blue-300 mt-2 animate-pulse">Loading your personal dashboard... {loadingTime}s</p>
+        <p className="text-blue-300 mt-2 animate-pulse">{message || "Loading your personal dashboard..."} {loadingTime}s</p>
         
         {showDebugInfo && (
           <div className="mt-8 max-w-md px-4 py-3 bg-gray-800 rounded-lg text-gray-300 text-sm">

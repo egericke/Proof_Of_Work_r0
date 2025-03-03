@@ -5,10 +5,34 @@ import { useEffect } from 'react';
 import ErrorBoundary from '../components/ErrorBoundary';
 
 function MyApp({ Component, pageProps }) {
-  // Fix hydration issues
+  // Fix hydration issues and initialize any app-wide state
   useEffect(() => {
     // This ensures that the client and server render match
     document.body.classList.add('dashboard-theme');
+    
+    // Add global error handler for unhandled errors
+    const originalConsoleError = console.error;
+    console.error = (...args) => {
+      // Log to console as usual
+      originalConsoleError.apply(console, args);
+      
+      // Check for common errors related to rendering
+      const errorText = args.join(' ');
+      if (
+        errorText.includes('Cannot read properties of undefined') ||
+        errorText.includes('Cannot read properties of null')
+      ) {
+        // Log to monitoring service if available
+        if (window.errorReporter) {
+          window.errorReporter.captureException(new Error(`JS Error: ${errorText}`));
+        }
+      }
+    };
+    
+    // Cleanup
+    return () => {
+      console.error = originalConsoleError;
+    };
   }, []);
   
   return (
