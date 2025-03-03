@@ -17,7 +17,14 @@ const fallbackVo2MaxHistory = [
   { test_date: '2023-01-25', vo2max_value: 44.1 },
 ];
 
-export default function FitnessPanel({ dateRange }) {
+function FitnessPanel({ dateRange }) {
+  // Ensure dateRange is defined with fallback values
+  if (!dateRange) {
+    dateRange = {
+      startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+      endDate: new Date()
+    };
+  }
   const [workouts, setWorkouts] = useState([]);
   const [vo2MaxHistory, setVo2MaxHistory] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -87,11 +94,11 @@ export default function FitnessPanel({ dateRange }) {
   }, [dateRange]);
 
   const vo2MaxChartData = {
-    labels: (vo2MaxHistory || []).map(d => d.test_date),
+    labels: (vo2MaxHistory || []).map(d => d?.test_date || ''),
     datasets: [
       {
         label: 'VO₂ Max',
-        data: (vo2MaxHistory || []).map(d => d.vo2max_value),
+        data: (vo2MaxHistory || []).map(d => d?.vo2max_value || 0),
         borderColor: 'rgba(139, 92, 246, 0.8)',
         backgroundColor: 'rgba(139, 92, 246, 0.2)',
         tension: 0.3,
@@ -101,15 +108,17 @@ export default function FitnessPanel({ dateRange }) {
   };
 
   const activityTypes = (workouts || []).reduce((acc, workout) => {
+    if (!workout) return acc;
     const type = workout.activity_type || 'unknown';
     acc[type] = (acc[type] || 0) + 1;
     return acc;
   }, {});
+  
   const activityChartData = {
-    labels: Object.keys(activityTypes),
+    labels: Object.keys(activityTypes || {}),
     datasets: [
       {
-        data: Object.values(activityTypes),
+        data: Object.values(activityTypes || {}),
         backgroundColor: ['rgba(59, 130, 246, 0.8)', 'rgba(16, 185, 129, 0.8)', 'rgba(239, 68, 68, 0.8)', 'rgba(245, 158, 11, 0.8)', 'rgba(139, 92, 246, 0.8)'],
         borderWidth: 0,
       },
@@ -171,8 +180,12 @@ export default function FitnessPanel({ dateRange }) {
             options={{
               scales: {
                 y: {
-                  min: Math.max(0, Math.min(...(vo2MaxHistory || []).map(d => d.vo2max_value || 0)) - 5),
-                  max: Math.max(...(vo2MaxHistory || []).map(d => d.vo2max_value || 0)) + 5,
+                  min: vo2MaxHistory && vo2MaxHistory.length > 0 
+                    ? Math.max(0, Math.min(...vo2MaxHistory.filter(d => d && typeof d.vo2max_value === 'number').map(d => d.vo2max_value)) - 5) 
+                    : 35,
+                  max: vo2MaxHistory && vo2MaxHistory.length > 0 
+                    ? Math.max(...vo2MaxHistory.filter(d => d && typeof d.vo2max_value === 'number').map(d => d.vo2max_value)) + 5 
+                    : 50,
                 },
               },
             }}
@@ -217,3 +230,13 @@ export default function FitnessPanel({ dateRange }) {
     </div>
   );
 }
+
+// Define default props
+FitnessPanel.defaultProps = {
+  dateRange: {
+    startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+    endDate: new Date()
+  }
+};
+
+export default FitnessPanel;

@@ -28,11 +28,30 @@ export default function DashboardLayout() {
   useEffect(() => {
     const initApp = async () => {
       try {
-        if (!supabase) console.warn('Supabase client could not be initialized. Using fallback data.');
+        // Check supabase connection
+        if (!supabase) {
+          console.warn('Supabase client could not be initialized. Using fallback data.');
+        } else {
+          console.log('Supabase client initialized successfully.');
+          
+          // Test a simple query to verify connection
+          try {
+            const { data, error } = await supabase.from('workout_stats').select('count');
+            if (error) {
+              console.warn('Supabase connection test failed:', error.message);
+            } else {
+              console.log('Supabase connection test successful');
+            }
+          } catch (queryError) {
+            console.warn('Supabase query test failed:', queryError);
+          }
+        }
+        
+        // Simulate loading for better UX
         setTimeout(() => setIsLoading(false), 1000);
       } catch (error) {
         console.error('Error initializing app:', error);
-        setLoadError(error.message);
+        setLoadError(error ? error.message : 'Unknown error initializing app');
         setTimeout(() => setIsLoading(false), 1000);
       }
     };

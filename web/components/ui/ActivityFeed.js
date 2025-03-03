@@ -14,22 +14,22 @@ export default function ActivityFeed({ activities = [], isLoading }) {
 
   console.log('Rendering ActivityFeed with activities:', activities);
 
-  if (!activities.length) {
+  if (!activities || !activities.length) {
     return <div className="text-gray-400 text-center py-4">No recent activities</div>;
   }
 
   return (
     <div className="space-y-4">
-      {(activities || []).map((activity, index) => (
+      {activities.map((activity, index) => (
         <div key={index} className="bg-gray-800 p-4 rounded-lg">
           <div className="flex justify-between items-center">
             <div>
-              <h4 className="text-blue-300 font-medium">{activity.title}</h4>
-              <p className="text-gray-400 text-sm">{activity.date}</p>
+              <h4 className="text-blue-300 font-medium">{activity?.title || 'Activity'}</h4>
+              <p className="text-gray-400 text-sm">{activity?.date || 'No date'}</p>
             </div>
             <div className="text-right">
-              <p className="text-white font-medium">{activity.value}</p>
-              <p className="text-gray-400 text-sm">{activity.type}</p>
+              <p className="text-white font-medium">{activity?.value || '-'}</p>
+              <p className="text-gray-400 text-sm">{activity?.type || 'Unknown'}</p>
             </div>
           </div>
         </div>
