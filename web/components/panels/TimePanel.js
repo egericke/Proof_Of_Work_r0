@@ -198,16 +198,18 @@ export default function TimePanel({ dateRange, supabase: propSupabase, initialTi
                 ))}
             </div>
           ) : (timeEntries || []).length > 0 ? (
-            (timeEntries || [])
-              .slice(0, 5)
-              .map((entry, index) => (
-                <TimeCard
-                  key={index}
-                  date={entry.date}
-                  bucket={entry.bucket}
-                  hours={entry.hours}
-                />
-              ))
+            Array.isArray(timeEntries) ?
+              timeEntries.filter(entry => entry !== null && entry !== undefined)
+                .slice(0, 5)
+                .map((entry, index) => (
+                  <TimeCard
+                    key={index}
+                    date={entry?.date || 'Unknown date'}
+                    bucket={entry?.bucket || 'Unknown category'}
+                    hours={entry?.hours || 0}
+                  />
+                ))
+              : <div className="text-gray-400 text-center py-4">Error: Invalid time entries data format.</div>
           ) : (
             <div className="text-gray-400 text-center py-4">No time entries found.</div>
           )}

@@ -175,19 +175,21 @@ export default function HabitsPanel({ dateRange, supabase: propSupabase, initial
               ))}
           </div>
         ) : (habits || []).length > 0 ? (
-          (habits || [])
-            .slice(0, 5)
-            .map((habit, index) => (
-              <div
-                key={index}
-                className="flex justify-between items-center p-2 bg-gray-700 rounded mb-2"
-              >
-                <span>{habit.habit_name}</span>
-                <span className={habit.completed ? 'text-green-400' : 'text-red-400'}>
-                  {habit.completed ? 'Completed' : 'Missed'}
-                </span>
-              </div>
-            ))
+          Array.isArray(habits) ? 
+            habits.filter(h => h !== null && h !== undefined)
+              .slice(0, 5)
+              .map((habit, index) => (
+                <div
+                  key={index}
+                  className="flex justify-between items-center p-2 bg-gray-700 rounded mb-2"
+                >
+                  <span>{habit?.habit_name || 'Unknown habit'}</span>
+                  <span className={habit?.completed ? 'text-green-400' : 'text-red-400'}>
+                    {habit?.completed ? 'Completed' : 'Missed'}
+                  </span>
+                </div>
+              ))
+            : <div className="text-gray-400 text-center py-4">Error: Invalid habits data format.</div>
         ) : (
           <div className="text-gray-400 text-center py-4">No habits found.</div>
         )}

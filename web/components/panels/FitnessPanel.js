@@ -390,18 +390,22 @@ function FitnessPanel({
           {isLoading ? (
             Array(3).fill(0).map((_, i) => <WorkoutCard key={i} isLoading={true} />)
           ) : (workouts || []).length > 0 ? (
-            (workouts || []).slice(0, 6).map((workout, index) => (
-              <WorkoutCard
-                key={index}
-                activityType={workout.activity_type}
-                title={workout.title}
-                date={workout.date}
-                distance={workout.distance}
-                duration={workout.time}
-                calories={workout.calories}
-                heartRate={workout.avg_hr}
-              />
-            ))
+            Array.isArray(workouts) ?
+              workouts.filter(w => w !== null && w !== undefined)
+                .slice(0, 6)
+                .map((workout, index) => (
+                  <WorkoutCard
+                    key={index}
+                    activityType={workout?.activity_type || 'Unknown'}
+                    title={workout?.title || 'Workout'}
+                    date={workout?.date || 'Unknown date'}
+                    distance={workout?.distance || 0}
+                    duration={workout?.time || 0}
+                    calories={workout?.calories || 0}
+                    heartRate={workout?.avg_hr || 0}
+                  />
+                ))
+              : <div className="col-span-3 py-8 text-center text-gray-400">Error: Invalid workout data format.</div>
           ) : (
             <div className="col-span-3 py-8 text-center text-gray-400">
               No workouts found in the selected date range.
