@@ -40,10 +40,20 @@ export default function DataChart({ data = { labels: [], datasets: [] }, type = 
     ...options,
     maintainAspectRatio: false,
     plugins: { legend: { labels: { color: '#e5e7eb' } }, ...options.plugins },
-    scales: options.scales ? {
-      ...options.scales,
-      x: { type: 'category', ...options.scales.x, grid: { color: 'rgba(255, 255, 255, 0.1)' }, ticks: { color: '#e5e7eb' } },
-      y: { type: 'linear', ...options.scales.y, grid: { color: 'rgba(255, 255, 255, 0.1)' }, ticks: { color: '#e5e7eb' } },
+    scales: type !== 'doughnut' ? {
+      x: { 
+        type: 'category', 
+        grid: { color: 'rgba(255, 255, 255, 0.1)' }, 
+        ticks: { color: '#e5e7eb' },
+        ...(options.scales?.x || {})
+      },
+      y: { 
+        type: 'linear', 
+        grid: { color: 'rgba(255, 255, 255, 0.1)' }, 
+        ticks: { color: '#e5e7eb' },
+        ...(options.scales?.y || {})
+      },
+      ...(options.scales || {})
     } : undefined,
   };
 

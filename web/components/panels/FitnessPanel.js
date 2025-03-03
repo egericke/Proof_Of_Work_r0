@@ -228,7 +228,13 @@ function FitnessPanel({
       const validHistory = Array.isArray(vo2MaxHistory) ? vo2MaxHistory.filter(d => d !== null && d !== undefined) : [];
       
       // Filter out entries with invalid vo2max_value (must be a number > 0)
-      const filteredHistory = validHistory.filter(d => d && typeof d.vo2max_value === 'number' && !isNaN(d.vo2max_value) && d.vo2max_value > 0);
+      const filteredHistory = validHistory.filter(d => 
+        d && 
+        typeof d.vo2max_value === 'number' && 
+        !isNaN(d.vo2max_value) && 
+        d.vo2max_value > 0 &&
+        typeof d.test_date === 'string'
+      );
       
       console.log(`Preparing VO2Max chart with ${filteredHistory.length} valid data points out of ${validHistory.length} total`);
       
@@ -244,22 +250,35 @@ function FitnessPanel({
               backgroundColor: 'rgba(139, 92, 246, 0.2)',
               tension: 0.3,
               fill: true,
+              pointRadius: 4,
+              pointHoverRadius: 6,
             },
           ],
         };
       }
       
-      // Create chart data with validated entries
+      // Sort data by date if available
+      filteredHistory.sort((a, b) => {
+        try {
+          return new Date(a.test_date) - new Date(b.test_date);
+        } catch (e) {
+          return 0;
+        }
+      });
+      
+      // Create chart data with validated entries and ensure consistent format
       return {
-        labels: filteredHistory.map(d => d && typeof d.test_date === 'string' ? d.test_date : ''),
+        labels: filteredHistory.map(d => d.test_date),
         datasets: [
           {
             label: 'VO₂ Max',
-            data: filteredHistory.map(d => d.vo2max_value), // We already filtered for valid values above
+            data: filteredHistory.map(d => d.vo2max_value),
             borderColor: 'rgba(139, 92, 246, 0.8)',
             backgroundColor: 'rgba(139, 92, 246, 0.2)',
             tension: 0.3,
             fill: true,
+            pointRadius: 4,
+            pointHoverRadius: 6,
           },
         ],
       };
@@ -276,6 +295,8 @@ function FitnessPanel({
             backgroundColor: 'rgba(139, 92, 246, 0.2)',
             tension: 0.3,
             fill: true,
+            pointRadius: 4,
+            pointHoverRadius: 6,
           },
         ],
       };
@@ -284,26 +305,72 @@ function FitnessPanel({
 
   // Use useMemo for activity types calculation
   const activityChartData = useMemo(() => {
-    // Validate workouts is an array and filter out any null/undefined entries
-    const validWorkouts = Array.isArray(workouts) ? workouts.filter(w => w !== null) : [];
-    console.log(`Preparing activity chart with ${validWorkouts.length} workouts`);
-    
-    const activityTypes = validWorkouts.reduce((acc, workout) => {
-      const type = workout && workout.activity_type ? workout.activity_type : 'unknown';
-      acc[type] = (acc[type] || 0) + 1;
-      return acc;
-    }, {});
-    
-    return {
-      labels: Object.keys(activityTypes),
-      datasets: [
-        {
-          data: Object.values(activityTypes),
-          backgroundColor: ['rgba(59, 130, 246, 0.8)', 'rgba(16, 185, 129, 0.8)', 'rgba(239, 68, 68, 0.8)', 'rgba(245, 158, 11, 0.8)', 'rgba(139, 92, 246, 0.8)'],
-          borderWidth: 0,
-        },
-      ],
-    };
+    try {
+      // Validate workouts is an array and filter out any null/undefined entries
+      const validWorkouts = Array.isArray(workouts) ? workouts.filter(w => w !== null) : [];
+      console.log(`Preparing activity chart with ${validWorkouts.length} workouts`);
+      
+      // Return default structure for empty data
+      if (validWorkouts.length === 0) {
+        return {
+          labels: ['No Data'],
+          datasets: [
+            {
+              data: [1],
+              backgroundColor: ['rgba(100, 100, 100, 0.2)'],
+              borderWidth: 0,
+            },
+          ],
+        };
+      }
+      
+      const activityTypes = validWorkouts.reduce((acc, workout) => {
+        const type = workout && workout.activity_type ? workout.activity_type : 'Unknown';
+        acc[type] = (acc[type] || 0) + 1;
+        return acc;
+      }, {});
+      
+      // Standard color palette for activity types
+      const colorPalette = {
+        'Running': 'rgba(59, 130, 246, 0.8)',   // Blue
+        'Cycling': 'rgba(16, 185, 129, 0.8)',   // Green
+        'Swimming': 'rgba(14, 165, 233, 0.8)',  // Light Blue
+        'Hiking': 'rgba(245, 158, 11, 0.8)',    // Orange
+        'Walking': 'rgba(139, 92, 246, 0.8)',   // Purple
+        'Weight Training': 'rgba(239, 68, 68, 0.8)', // Red
+        'Yoga': 'rgba(217, 119, 6, 0.8)',       // Yellow
+        'Unknown': 'rgba(100, 116, 139, 0.8)'   // Gray
+      };
+      
+      // Generate background colors based on activity type
+      const backgroundColors = Object.keys(activityTypes).map(type => 
+        colorPalette[type] || 'rgba(100, 116, 139, 0.8)'
+      );
+      
+      return {
+        labels: Object.keys(activityTypes),
+        datasets: [
+          {
+            data: Object.values(activityTypes),
+            backgroundColor: backgroundColors,
+            borderWidth: 0,
+            hoverOffset: 4,
+          },
+        ],
+      };
+    } catch (error) {
+      console.error('Error preparing activity chart data:', error);
+      return {
+        labels: ['Error'],
+        datasets: [
+          {
+            data: [1],
+            backgroundColor: ['rgba(239, 68, 68, 0.8)'],
+            borderWidth: 0,
+          },
+        ],
+      };
+    }
   }, [workouts]);
 
   const handleVo2MaxSubmit = async (value) => {
@@ -425,12 +492,40 @@ function FitnessPanel({
                   height={300}
                   isLoading={isLoading}
                   options={{
+                    responsive: true,
+                    animation: {
+                      duration: 1000
+                    },
+                    plugins: {
+                      tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        backgroundColor: 'rgba(30, 41, 59, 0.8)'
+                      },
+                      legend: {
+                        position: 'top'
+                      }
+                    },
                     scales: {
+                      x: {
+                        grid: {
+                          display: true,
+                          color: 'rgba(255, 255, 255, 0.1)'
+                        }
+                      },
                       y: {
                         min: displayMin,
                         max: displayMax,
-                      },
-                    },
+                        grid: {
+                          display: true,
+                          color: 'rgba(255, 255, 255, 0.1)'
+                        },
+                        title: {
+                          display: true,
+                          text: 'VO₂ Max (ml/kg/min)'
+                        }
+                      }
+                    }
                   }}
                 />
               );
@@ -451,7 +546,26 @@ function FitnessPanel({
             type="doughnut"
             height={250}
             isLoading={isLoading || workouts.length === 0}
-            options={{ plugins: { legend: { position: 'bottom' } } }}
+            options={{ 
+              responsive: true,
+              animation: {
+                duration: 800
+              },
+              plugins: { 
+                legend: { 
+                  position: 'bottom',
+                  labels: {
+                    padding: 20,
+                    usePointStyle: true
+                  }
+                },
+                tooltip: {
+                  backgroundColor: 'rgba(30, 41, 59, 0.8)',
+                  padding: 12
+                }
+              },
+              cutout: '65%'
+            }}
           />
         </div>
       </div>
