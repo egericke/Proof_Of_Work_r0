@@ -66,7 +66,7 @@ export default function OverviewPanel({
       let vo2MaxTrend = fallbackVo2Max.trend;
       
       // Process Vo2Max data
-      if (Array.isArray(initialVo2MaxData) && initialVo2MaxData.length > 0) {
+      if (Array.isArray(initialVo2MaxData) && initialVo2MaxData.length > 0 && initialVo2MaxData[0] !== null) {
         vo2MaxValue = initialVo2MaxData[0]?.vo2max_value || vo2MaxValue;
       }
       
@@ -209,8 +209,8 @@ export default function OverviewPanel({
             const { data: habitsData, error: habitsError } = habitsResult;
 
             // Process VO2 max data
-            if (!vo2MaxError && vo2MaxData && Array.isArray(vo2MaxData) && vo2MaxData.length > 0) {
-              vo2MaxValue = vo2MaxData[0].vo2max_value;
+            if (!vo2MaxError && vo2MaxData && Array.isArray(vo2MaxData) && vo2MaxData.length > 0 && vo2MaxData[0] !== null) {
+              vo2MaxValue = vo2MaxData[0]?.vo2max_value || vo2MaxValue;
             }
 
             // Process workouts data

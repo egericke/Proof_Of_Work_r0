@@ -224,8 +224,25 @@ function FitnessPanel({
   // Use useMemo for chart data to avoid unnecessary recalculations
   const vo2MaxChartData = useMemo(() => {
     // Validate vo2MaxHistory is an array and filter out any null/undefined entries
-    const validHistory = Array.isArray(vo2MaxHistory) ? vo2MaxHistory.filter(d => d !== null) : [];
+    const validHistory = Array.isArray(vo2MaxHistory) ? vo2MaxHistory.filter(d => d !== null && d !== undefined) : [];
     console.log(`Preparing VO2Max chart with ${validHistory.length} data points`);
+    
+    // Return default empty chart structure if no valid data
+    if (validHistory.length === 0) {
+      return {
+        labels: [],
+        datasets: [
+          {
+            label: 'VO₂ Max',
+            data: [],
+            borderColor: 'rgba(139, 92, 246, 0.8)',
+            backgroundColor: 'rgba(139, 92, 246, 0.2)',
+            tension: 0.3,
+            fill: true,
+          },
+        ],
+      };
+    }
     
     return {
       labels: validHistory.map(d => d && typeof d.test_date === 'string' ? d.test_date : ''),
@@ -354,24 +371,26 @@ function FitnessPanel({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 bg-gray-800 bg-opacity-60 rounded-lg border border-blue-500/20 p-4 backdrop-blur-sm">
           <h3 className="text-lg font-medium text-blue-300 mb-4">VO₂ Max Trend</h3>
-          <DataChart
-            data={vo2MaxChartData}
-            type="line"
-            height={300}
-            isLoading={isLoading || vo2MaxHistory.length === 0}
-            options={{
-              scales: {
-                y: {
-                  min: vo2MaxHistory && vo2MaxHistory.length > 0 
-                    ? Math.max(0, Math.min(...vo2MaxHistory.filter(d => d && typeof d.vo2max_value === 'number').map(d => d.vo2max_value)) - 5) 
-                    : 35,
-                  max: vo2MaxHistory && vo2MaxHistory.length > 0 
-                    ? Math.max(...vo2MaxHistory.filter(d => d && typeof d.vo2max_value === 'number').map(d => d.vo2max_value)) + 5 
-                    : 50,
+          {vo2MaxHistory && vo2MaxHistory.length > 0 ? (
+            <DataChart
+              data={vo2MaxChartData}
+              type="line"
+              height={300}
+              isLoading={isLoading}
+              options={{
+                scales: {
+                  y: {
+                    min: Math.max(0, Math.min(...vo2MaxHistory.filter(d => d && typeof d.vo2max_value === 'number').map(d => d.vo2max_value)) - 5),
+                    max: Math.max(...vo2MaxHistory.filter(d => d && typeof d.vo2max_value === 'number').map(d => d.vo2max_value)) + 5,
+                  },
                 },
-              },
-            }}
-          />
+              }}
+            />
+          ) : (
+            <div className="flex items-center justify-center h-[300px] text-gray-400">
+              <p>No VO₂ Max data available for the selected date range</p>
+            </div>
+          )}
         </div>
         <div className="bg-gray-800 bg-opacity-60 rounded-lg border border-blue-500/20 p-4 backdrop-blur-sm">
           <h3 className="text-lg font-medium text-blue-300 mb-4">Activity Types</h3>
