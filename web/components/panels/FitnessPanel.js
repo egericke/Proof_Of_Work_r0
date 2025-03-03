@@ -17,7 +17,12 @@ const fallbackVo2MaxHistory = [
   { test_date: '2023-01-25', vo2max_value: 44.1 },
 ];
 
-function FitnessPanel({ dateRange, supabase: propSupabase }) {
+function FitnessPanel({ 
+  dateRange, 
+  supabase: propSupabase, 
+  initialWorkouts = [], 
+  initialVo2MaxHistory = [] 
+}) {
   // Ensure dateRange is defined with fallback values
   if (!dateRange) {
     dateRange = {
@@ -25,9 +30,23 @@ function FitnessPanel({ dateRange, supabase: propSupabase }) {
       endDate: new Date()
     };
   }
-  const [workouts, setWorkouts] = useState([]);
-  const [vo2MaxHistory, setVo2MaxHistory] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  
+  // Initialize state with server-fetched data or empty arrays
+  const [workouts, setWorkouts] = useState(
+    Array.isArray(initialWorkouts) && initialWorkouts.length > 0 
+      ? initialWorkouts 
+      : []
+  );
+  const [vo2MaxHistory, setVo2MaxHistory] = useState(
+    Array.isArray(initialVo2MaxHistory) && initialVo2MaxHistory.length > 0 
+      ? initialVo2MaxHistory 
+      : []
+  );
+  
+  // Don't show loading state if we already have data
+  const [isLoading, setIsLoading] = useState(
+    !(initialWorkouts?.length && initialVo2MaxHistory?.length)
+  );
   const [error, setError] = useState(null);
   const [workoutStats, setWorkoutStats] = useState({
     totalDistance: 0,
@@ -49,8 +68,37 @@ function FitnessPanel({ dateRange, supabase: propSupabase }) {
   };
 
   useEffect(() => {
+    // Skip data fetching if we already have data from server-side props
+    const hasInitialWorkoutData = Array.isArray(initialWorkouts) && initialWorkouts.length > 0 && workouts === initialWorkouts;
+    const hasInitialVo2MaxData = Array.isArray(initialVo2MaxHistory) && initialVo2MaxHistory.length > 0 && vo2MaxHistory === initialVo2MaxHistory;
+    
+    if (hasInitialWorkoutData && hasInitialVo2MaxData) {
+      console.log('FitnessPanel: Using server-fetched initial data - workouts:', initialWorkouts.length, 'vo2max:', initialVo2MaxHistory.length);
+      
+      // Calculate initial stats from preloaded data
+      const validWorkouts = initialWorkouts.filter(w => w !== null);
+      const totalDistance = validWorkouts.reduce((sum, w) => sum + (typeof w.distance === 'number' ? w.distance : 0), 0);
+      const totalCalories = validWorkouts.reduce((sum, w) => sum + (typeof w.calories === 'number' ? w.calories : 0), 0);
+      const totalTime = validWorkouts.reduce((sum, w) => sum + (typeof w.time === 'number' ? w.time : 0), 0);
+      
+      const heartRateWorkouts = validWorkouts.filter(w => typeof w.avg_hr === 'number');
+      const avgHeartRate = heartRateWorkouts.length
+        ? heartRateWorkouts.reduce((sum, w) => sum + w.avg_hr, 0) / heartRateWorkouts.length
+        : 0;
+
+      setWorkoutStats({
+        totalDistance: parseFloat((totalDistance / 1000).toFixed(1)),
+        totalCalories,
+        totalTime: Math.round(totalTime / 60),
+        avgHeartRate: Math.round(avgHeartRate),
+      });
+      
+      return; // Skip fetching - we already have pre-loaded data
+    }
+    
     async function fetchData() {
       setIsLoading(true);
+      setError(null);
       try {
         if (!dateRange || !dateRange.startDate || !dateRange.endDate) {
           console.warn('FitnessPanel: Invalid dateRange provided, using fallback data');
@@ -171,7 +219,7 @@ function FitnessPanel({ dateRange, supabase: propSupabase }) {
       }
     }
     fetchData();
-  }, [dateRange]);
+  }, [dateRange, initialWorkouts, initialVo2MaxHistory, workouts, vo2MaxHistory]);
 
   // Use useMemo for chart data to avoid unnecessary recalculations
   const vo2MaxChartData = useMemo(() => {

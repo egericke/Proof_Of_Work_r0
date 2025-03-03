@@ -11,9 +11,9 @@ import TimePanel from './panels/TimePanel';
 import HabitsPanel from './panels/HabitsPanel';
 import ErrorBoundary from './ErrorBoundary';
 
-export default function DashboardLayout() {
+export default function DashboardLayout({ initialData = {} }) {
   const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState(null);
+  const [loadError, setLoadError] = useState(initialData.error || null);
   const [activePanel, setActivePanel] = useState('overview');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [dateRange, setDateRange] = useState({
@@ -21,8 +21,16 @@ export default function DashboardLayout() {
     endDate: new Date(),
   });
   const [userData, setUserData] = useState({ name: 'Dashboard User', avatar: '/avatar-placeholder.png' });
-  const [supabaseInitialized, setSupabaseInitialized] = useState(false);
+  const [supabaseInitialized, setSupabaseInitialized] = useState(!!initialData.workouts);
 
+  // Pre-initialize data from SSR
+  const [panelData, setPanelData] = useState({
+    workouts: Array.isArray(initialData.workouts) ? initialData.workouts : [],
+    vo2max: Array.isArray(initialData.vo2max) ? initialData.vo2max : [],
+    time: Array.isArray(initialData.time) ? initialData.time : [],
+    habits: Array.isArray(initialData.habits) ? initialData.habits : []
+  });
+  
   // Initialize Supabase client - ensure we don't fetch data until initialization is complete
   const [supabase, setSupabase] = useState(null);
 
@@ -90,47 +98,102 @@ export default function DashboardLayout() {
       return <LoadingOverlay message="Initializing data connection..." />;
     }
 
-    // Initialize empty panel props to avoid undefined errors
+    // Initialize panel props with pre-fetched data and fallbacks to avoid undefined errors
     const panelProps = {
       dateRange: dateRange || {
         startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
         endDate: new Date(),
       },
-      supabase
+      supabase,
+      // Important: Pass pre-fetched data from server to avoid map errors
+      initialWorkoutsData: panelData.workouts,
+      initialVo2MaxData: panelData.vo2max,
+      initialTimeData: panelData.time,
+      initialHabitsData: panelData.habits
     };
     
+    // Render the right panel with required data based on selection
     switch (activePanel) {
       case 'overview':
         return (
           <ErrorBoundary componentName="OverviewPanel">
-            <OverviewPanel {...panelProps} />
+            <OverviewPanel 
+              {...panelProps}
+              // For Overview panel, we need to provide all data types
+              initialActivities={[
+                ...createActivityItems(panelData.workouts, 'workout'),
+                ...createActivityItems(panelData.time, 'focus')
+              ]} 
+            />
           </ErrorBoundary>
         );
       case 'fitness':
         return (
           <ErrorBoundary componentName="FitnessPanel">
-            <FitnessPanel {...panelProps} />
+            <FitnessPanel 
+              {...panelProps}
+              // Pass subset of pre-fetched data specifically needed by this panel
+              initialWorkouts={panelData.workouts}
+              initialVo2MaxHistory={panelData.vo2max}
+            />
           </ErrorBoundary>
         );
       case 'time':
         return (
           <ErrorBoundary componentName="TimePanel">
-            <TimePanel {...panelProps} />
+            <TimePanel 
+              {...panelProps}
+              // Pass subset of pre-fetched data specifically needed by this panel
+              initialTimeEntries={panelData.time}
+            />
           </ErrorBoundary>
         );
       case 'habits':
         return (
           <ErrorBoundary componentName="HabitsPanel">
-            <HabitsPanel {...panelProps} />
+            <HabitsPanel 
+              {...panelProps}
+              // Pass subset of pre-fetched data specifically needed by this panel
+              initialHabits={panelData.habits}
+            />
           </ErrorBoundary>
         );
       default:
         return (
           <ErrorBoundary componentName="OverviewPanel">
-            <OverviewPanel {...panelProps} />
+            <OverviewPanel 
+              {...panelProps}
+              initialActivities={[
+                ...createActivityItems(panelData.workouts, 'workout'),
+                ...createActivityItems(panelData.time, 'focus')
+              ]} 
+            />
           </ErrorBoundary>
         );
     }
+  };
+  
+  // Helper function to transform workout/time data into activity feed items
+  const createActivityItems = (data, type) => {
+    if (!Array.isArray(data)) return [];
+    
+    if (type === 'workout') {
+      return data.slice(0, 3).map(workout => ({
+        type: 'workout',
+        title: workout?.title || workout?.activity_type || 'Workout',
+        date: workout?.date ? new Date(workout.date).toLocaleDateString() : 'Unknown',
+        value: `${((workout?.distance || 0) / 1000).toFixed(2)} km`,
+      }));
+    } else if (type === 'focus') {
+      return data.slice(0, 3).map(entry => ({
+        type: 'focus',
+        title: entry?.bucket || 'Time Entry',
+        date: entry?.date ? new Date(entry.date).toLocaleDateString() : 'Unknown',
+        value: `${entry?.hours || 0} hrs`,
+      }));
+    }
+    
+    return [];
   };
 
   if (isLoading) return <LoadingOverlay />;

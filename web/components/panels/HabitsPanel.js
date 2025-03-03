@@ -10,10 +10,14 @@ const fallbackHabits = [
   { habit_date: '2023-01-10', habit_name: 'Exercise', completed: false },
 ];
 
-export default function HabitsPanel({ dateRange, supabase: propSupabase }) {
-  // Initialize state as an empty array
-  const [habits, setHabits] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+export default function HabitsPanel({ dateRange, supabase: propSupabase, initialHabits = [] }) {
+  // Initialize state with server-fetched data or empty array
+  const [habits, setHabits] = useState(
+    Array.isArray(initialHabits) && initialHabits.length > 0 
+      ? initialHabits 
+      : []
+  );
+  const [isLoading, setIsLoading] = useState(!initialHabits?.length); // Don't show loading if we have initial data
   const [error, setError] = useState(null);
 
   // Utility to format dates for Supabase queries
@@ -30,12 +34,19 @@ export default function HabitsPanel({ dateRange, supabase: propSupabase }) {
   };
 
   useEffect(() => {
+    // Skip data fetching if we have initial data and it's the first render
+    if (Array.isArray(initialHabits) && initialHabits.length > 0 && habits === initialHabits) {
+      console.log('HabitsPanel: Using server-fetched initial data:', initialHabits.length);
+      return; // Skip fetching - we already have pre-loaded data
+    }
+    
     async function fetchData() {
       setIsLoading(true);
+      setError(null);
       try {
         if (!dateRange || !dateRange.startDate || !dateRange.endDate) {
           console.warn('HabitsPanel: Invalid dateRange provided, using fallback data');
-          setHabits(fallbackHabits);
+          setHabits(fallbackHabits || []);
           return;
         }
 
@@ -102,7 +113,7 @@ export default function HabitsPanel({ dateRange, supabase: propSupabase }) {
       }
     }
     fetchData();
-  }, [dateRange]);
+  }, [dateRange, initialHabits, habits]);
 
   // Group habits by date for calendar view - with extra validation
   const habitsByDate = React.useMemo(() => {

@@ -11,10 +11,14 @@ const fallbackTimeEntries = [
   { date: '2023-01-11', bucket: 'Deep Work', hours: 3.8 },
 ];
 
-export default function TimePanel({ dateRange, supabase: propSupabase }) {
-  // Initialize state as an empty array to avoid undefined errors
-  const [timeEntries, setTimeEntries] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+export default function TimePanel({ dateRange, supabase: propSupabase, initialTimeEntries = [] }) {
+  // Initialize state with server-fetched data or empty array
+  const [timeEntries, setTimeEntries] = useState(
+    Array.isArray(initialTimeEntries) && initialTimeEntries.length > 0 
+      ? initialTimeEntries 
+      : []
+  );
+  const [isLoading, setIsLoading] = useState(!initialTimeEntries?.length); // Don't show loading if we have initial data
   const [error, setError] = useState(null);
 
   // Utility to format dates for Supabase queries
@@ -31,12 +35,19 @@ export default function TimePanel({ dateRange, supabase: propSupabase }) {
   };
 
   useEffect(() => {
+    // Skip data fetching if we have initial data and it's the first render
+    if (Array.isArray(initialTimeEntries) && initialTimeEntries.length > 0 && timeEntries === initialTimeEntries) {
+      console.log('TimePanel: Using server-fetched initial data:', initialTimeEntries.length);
+      return; // Skip fetching - we already have pre-loaded data
+    }
+    
     async function fetchData() {
       setIsLoading(true);
+      setError(null);
       try {
         if (!dateRange || !dateRange.startDate || !dateRange.endDate) {
           console.warn('TimePanel: Invalid dateRange provided, using fallback data');
-          setTimeEntries(fallbackTimeEntries);
+          setTimeEntries(fallbackTimeEntries || []);
           return;
         }
 
@@ -103,7 +114,7 @@ export default function TimePanel({ dateRange, supabase: propSupabase }) {
       }
     }
     fetchData();
-  }, [dateRange]);
+  }, [dateRange, initialTimeEntries, timeEntries]);
 
   // Process chart data with additional validation
   const chartData = useMemo(() => {

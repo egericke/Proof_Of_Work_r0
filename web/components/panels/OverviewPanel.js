@@ -14,7 +14,15 @@ const fallbackActivities = [
   { type: 'habit', title: 'Daily Habits', date: '2023-01-10', value: '4/5 complete' },
 ];
 
-export default function OverviewPanel({ dateRange, supabase: propSupabase }) {
+export default function OverviewPanel({ 
+  dateRange, 
+  supabase: propSupabase,
+  initialActivities = [],
+  initialWorkoutsData = [],
+  initialVo2MaxData = [],
+  initialTimeData = [],
+  initialHabitsData = []
+}) {
   const [stats, setStats] = useState({
     vo2Max: { value: 0, trend: 0 },
     workouts: { value: 0, trend: 0 },
@@ -22,8 +30,18 @@ export default function OverviewPanel({ dateRange, supabase: propSupabase }) {
     habitStreak: { value: 0, trend: 0 },
   });
   const [activityData, setActivityData] = useState({ labels: [], datasets: [] });
-  const [recentActivities, setRecentActivities] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  
+  // Initialize with server-fetched data if available
+  const [recentActivities, setRecentActivities] = useState(
+    Array.isArray(initialActivities) && initialActivities.length > 0
+      ? initialActivities
+      : []
+  );
+  
+  // Don't show loading if we have pre-loaded data
+  const [isLoading, setIsLoading] = useState(
+    !(initialActivities?.length || initialWorkoutsData?.length)
+  );
   const [error, setError] = useState(null);
 
   const formatDateParam = (date) => {
@@ -39,6 +57,82 @@ export default function OverviewPanel({ dateRange, supabase: propSupabase }) {
   };
 
   useEffect(() => {
+    // Skip data fetching if we already have data from SSR
+    if (Array.isArray(initialActivities) && initialActivities.length > 0 && recentActivities === initialActivities) {
+      console.log('OverviewPanel: Using server-fetched initial data:', initialActivities.length);
+      
+      // Pre-calculate stats from the SSR data
+      let vo2MaxValue = fallbackVo2Max.value;
+      let vo2MaxTrend = fallbackVo2Max.trend;
+      
+      // Process Vo2Max data
+      if (Array.isArray(initialVo2MaxData) && initialVo2MaxData.length > 0) {
+        vo2MaxValue = initialVo2MaxData[0]?.vo2max_value || vo2MaxValue;
+      }
+      
+      // Process workout data
+      const workoutCount = Array.isArray(initialWorkoutsData) ? initialWorkoutsData.length : 0;
+      
+      // Process focus time data
+      const deepWorkHours = Array.isArray(initialTimeData) 
+        ? initialTimeData
+            .filter(entry => entry && entry.bucket === 'Deep Work')
+            .reduce((sum, entry) => sum + (typeof entry.hours === 'number' ? entry.hours : 0), 0)
+        : 0;
+      
+      // Process habit data
+      const habitsByDate = {};
+      if (Array.isArray(initialHabitsData)) {
+        initialHabitsData.forEach(habit => {
+          if (!habit || !habit.habit_date) return;
+          if (!habitsByDate[habit.habit_date]) {
+            habitsByDate[habit.habit_date] = { total: 0, completed: 0 };
+          }
+          habitsByDate[habit.habit_date].total++;
+          if (habit.completed) habitsByDate[habit.habit_date].completed++;
+        });
+      }
+      
+      const habitStreakCount = Object.keys(habitsByDate).filter(date => {
+        const dayData = habitsByDate[date];
+        return dayData.total > 0 && dayData.completed / dayData.total >= 0.8;
+      }).length;
+      
+      // Set stats based on pre-loaded data
+      setStats({
+        vo2Max: { value: vo2MaxValue || 0, trend: vo2MaxTrend || 0 },
+        workouts: { value: workoutCount || 0, trend: 0 },
+        focusHours: { value: deepWorkHours ? deepWorkHours.toFixed(1) : '0.0', trend: 0 },
+        habitStreak: { value: habitStreakCount || 0, trend: 0 },
+      });
+      
+      // Create activity chart with some default data (chart data could also be pre-computed on the server)
+      const chartLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      const chartData = {
+        labels: chartLabels,
+        datasets: [
+          {
+            label: 'Workouts',
+            data: [1, 0, 1, 1, 0, 1, 0],
+            borderColor: 'rgba(66, 153, 225, 0.8)',
+            backgroundColor: 'rgba(66, 153, 225, 0.2)',
+            yAxisID: 'y-axis-1',
+          },
+          {
+            label: 'Focus Hours',
+            data: [4.5, 5.2, 3.8, 6.1, 4.3, 1.5, 0.8],
+            borderColor: 'rgba(236, 72, 153, 0.8)',
+            backgroundColor: 'rgba(236, 72, 153, 0.2)',
+            yAxisID: 'y-axis-2',
+          },
+        ],
+      };
+      
+      setActivityData(chartData);
+      setIsLoading(false);
+      return; // Skip fetching since we have initial data
+    }
+    
     async function fetchData() {
       setIsLoading(true);
       setError(null);
@@ -199,7 +293,7 @@ export default function OverviewPanel({ dateRange, supabase: propSupabase }) {
       }
     }
     fetchData();
-  }, [dateRange]);
+  }, [dateRange, initialActivities, initialWorkoutsData, initialVo2MaxData, initialTimeData, initialHabitsData, recentActivities]);
 
   // Use useMemo for validating and processing recent activities
   const validActivities = useMemo(() => {
