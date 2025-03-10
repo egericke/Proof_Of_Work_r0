@@ -1,6 +1,7 @@
 // web/components/ui/HabitTracker.js
 import React, { useState, useEffect } from 'react';
 import { getSupabaseClient } from '../../utils/supabaseClient';
+import IndividualHabitDashboard from './IndividualHabitDashboard';
 
 export default function HabitTracker() {
   const [habits, setHabits] = useState([]);
@@ -11,6 +12,7 @@ export default function HabitTracker() {
     totalDone: 0,
     overallRate: 0
   });
+  const [individualHabits, setIndividualHabits] = useState({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [year, setYear] = useState(new Date().getFullYear());
@@ -38,7 +40,7 @@ export default function HabitTracker() {
           
         if (error) throw error;
         
-        // Calculate stats
+        // Calculate overall stats
         const habitsByDate = {};
         const today = new Date().toISOString().split('T')[0];
         const currentMonth = new Date().getMonth() + 1;
@@ -124,6 +126,27 @@ export default function HabitTracker() {
             totalDone,
             overallRate
           });
+          
+          // Process individual habits data
+          const habitNames = new Set();
+          data.forEach(habit => habitNames.add(habit.habit_name));
+          
+          const habitsData = {};
+          
+          habitNames.forEach(habitName => {
+            const habitEntries = data
+              .filter(h => h.habit_name === habitName)
+              .map(h => ({
+                date: h.habit_date,
+                completed: h.completed
+              }));
+              
+            habitsData[habitName] = {
+              entries: habitEntries
+            };
+          });
+          
+          setIndividualHabits(habitsData);
         }
         
         setHabits(data || []);
@@ -210,9 +233,6 @@ export default function HabitTracker() {
     });
   };
   
-  // Current month name for the "Done in Month" card
-  const currentMonthName = new Date().toLocaleString('default', { month: 'long' });
-  
   if (isLoading) {
     return (
       <div className="animate-pulse space-y-4">
@@ -281,12 +301,12 @@ export default function HabitTracker() {
         </div>
       </div>
       
-      {/* Stats Cards */}
+      {/* Overall Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-gray-800 bg-opacity-60 rounded-lg border border-blue-500/20 p-4 backdrop-blur-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-400 text-sm">Current Streak</p>
+              <p className="text-gray-400 text-sm">Overall Current Streak</p>
               <p className="text-2xl font-bold">{habitStats.currentStreak} <span className="text-sm">Days</span></p>
             </div>
             <div className="p-2 rounded-full bg-blue-500/20 text-blue-400">
@@ -300,7 +320,7 @@ export default function HabitTracker() {
         <div className="bg-gray-800 bg-opacity-60 rounded-lg border border-blue-500/20 p-4 backdrop-blur-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-400 text-sm">Best Streak</p>
+              <p className="text-gray-400 text-sm">Overall Best Streak</p>
               <p className="text-2xl font-bold">{habitStats.bestStreak} <span className="text-sm">Days</span></p>
             </div>
             <div className="p-2 rounded-full bg-amber-500/20 text-amber-400">
@@ -314,7 +334,7 @@ export default function HabitTracker() {
         <div className="bg-gray-800 bg-opacity-60 rounded-lg border border-blue-500/20 p-4 backdrop-blur-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-400 text-sm">Done in {currentMonthName}</p>
+              <p className="text-gray-400 text-sm">Days Done This Month</p>
               <p className="text-2xl font-bold">{habitStats.doneInMonth} <span className="text-sm">Days</span></p>
             </div>
             <div className="p-2 rounded-full bg-green-500/20 text-green-400">
@@ -328,8 +348,8 @@ export default function HabitTracker() {
         <div className="bg-gray-800 bg-opacity-60 rounded-lg border border-blue-500/20 p-4 backdrop-blur-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-400 text-sm">Total Done</p>
-              <p className="text-2xl font-bold">{habitStats.totalDone} <span className="text-sm">Days</span></p>
+              <p className="text-gray-400 text-sm">Overall Completion Rate</p>
+              <p className="text-2xl font-bold">{habitStats.overallRate} <span className="text-sm">%</span></p>
             </div>
             <div className="p-2 rounded-full bg-purple-500/20 text-purple-400">
               <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -341,24 +361,47 @@ export default function HabitTracker() {
         </div>
       </div>
       
-      {/* Color Legend */}
-      <div className="flex flex-wrap items-center justify-center gap-4 bg-gray-800 bg-opacity-60 rounded-lg border border-blue-500/20 p-4 backdrop-blur-sm">
-        <div className="flex items-center">
-          <div className="w-4 h-4 bg-blue-500 rounded-sm mr-2"></div>
-          <span className="text-sm text-gray-300">Completed</span>
-        </div>
-        <div className="flex items-center">
-          <div className="w-4 h-4 bg-gray-600 rounded-sm mr-2"></div>
-          <span className="text-sm text-gray-300">Incomplete</span>
-        </div>
-        <div className="flex items-center">
-          <div className="w-4 h-4 bg-gray-800 rounded-sm mr-2"></div>
-          <span className="text-sm text-gray-300">No Data</span>
-        </div>
+      {/* Individual Habit Dashboards */}
+      <div className="mb-6">
+        <h3 className="text-xl font-medium text-blue-300 mb-4">Individual Habits</h3>
+        
+        {Object.keys(individualHabits).length === 0 ? (
+          <div className="bg-gray-800 bg-opacity-60 rounded-lg border border-blue-500/20 p-6 text-center text-gray-400">
+            No habit data available for {year}
+          </div>
+        ) : (
+          <div className="space-y-1">
+            {Object.entries(individualHabits).map(([habitName, habitData]) => (
+              <IndividualHabitDashboard 
+                key={habitName}
+                habitName={habitName}
+                habitData={habitData}
+              />
+            ))}
+          </div>
+        )}
       </div>
       
-      {/* Yearly Grid */}
+      {/* Overall Yearly View */}
       <div className="bg-gray-800 bg-opacity-60 rounded-lg border border-blue-500/20 p-4 backdrop-blur-sm">
+        <h3 className="text-lg font-medium text-blue-300 mb-4">Overall Yearly View</h3>
+        
+        {/* Color Legend */}
+        <div className="flex flex-wrap items-center justify-center gap-4 mb-4 bg-gray-700 p-3 rounded">
+          <div className="flex items-center">
+            <div className="w-4 h-4 bg-blue-500 rounded-sm mr-2"></div>
+            <span className="text-sm text-gray-300">Completed (80%+ of habits)</span>
+          </div>
+          <div className="flex items-center">
+            <div className="w-4 h-4 bg-gray-600 rounded-sm mr-2"></div>
+            <span className="text-sm text-gray-300">Incomplete (<80% of habits)</span>
+          </div>
+          <div className="flex items-center">
+            <div className="w-4 h-4 bg-gray-800 rounded-sm mr-2"></div>
+            <span className="text-sm text-gray-300">No Data</span>
+          </div>
+        </div>
+        
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-2">
           {renderYearlyGrid()}
         </div>
