@@ -394,7 +394,7 @@ export default function HabitTracker() {
           </div>
           <div className="flex items-center">
             <div className="w-4 h-4 bg-gray-600 rounded-sm mr-2"></div>
-            <span className="text-sm text-gray-300">Incomplete (<80% of habits)</span>
+            <span className="text-sm text-gray-300">Incomplete (&lt;80% of habits)</span>
           </div>
           <div className="flex items-center">
             <div className="w-4 h-4 bg-gray-800 rounded-sm mr-2"></div>
