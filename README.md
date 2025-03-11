@@ -1,53 +1,36 @@
 # My Daily Proof
 
-This project is a personal dashboard that integrates fitness data from Garmin and Strava, time-tracking data from Toggl, and habit tracking via Google Forms. The data is stored in a Supabase/Postgresql database and visualized through a Next.js dashboard. The project is automated using GitHub Actions to ensure daily updates.
+![Dashboard Screenshot](dashboard-screenshot.png)
 
-By making my fitness, time management, and habit data public, I aim to stay accountable and continuously improve. The dashboard is influenced by:
-- **Naval Ravikant's ideals** on prioritizing health, learning, and deep work as key pillars of a meaningful life. These ideals shape the focus on tracking time spent on fitness, learning, and focused work.
-- **Peter Attia's focus** on fitness metrics like VO2 max, strength, and other longevity indicators, which are tracked and visualized in the dashboard to monitor long-term health.
-- **Balaji Srinivasan's "Proof of Workout"** concept, which emphasizes public accountability for fitness and productivity by sharing progress transparently.
-- **James Clear's Atomic Habits**, which highlights the power of small, consistent habits to drive self-improvement. This project makes habit data public to reinforce accountability.
+A personal dashboard that integrates fitness data from Garmin and Strava, time-tracking data from Toggl, and habit tracking via Google Forms. Data is stored in a Supabase/PostgreSQL database and visualized through a responsive Next.js dashboard.
 
----
+By making fitness, time management, and habit data public, this project aims to promote accountability and continuous improvement.
 
-## Directory Structure
+## Inspiration
 
+This dashboard is influenced by several thought leaders:
 
----
+- **Naval Ravikant**: Prioritizing health, learning, and deep work as foundational elements for personal growth.
+- **Peter Attia**: Focusing on fitness metrics like VO2 max and other longevity indicators to optimize long-term health.
+- **Balaji Srinivasan**: Implementing a "Proof of Workout" concept for public accountability in fitness and productivity.
+- **James Clear**: Emphasizing small, consistent habits through public habit tracking to drive meaningful change.
 
-my-daily-proof/
-├─ .github/
-│  └─ workflows/
-│      └─ daily_workout.yml
-├─ scripts/
-│  ├─ config.py
-│  ├─ database.py
-│  ├─ fetcher.py
-│  ├─ strava_fallback.py
-│  ├─ vo2max.py
-│  ├─ toggl_integration.py
-│  ├─ main.py
-│  ├─ post_to_social.py
-│  └─ screenshot_chart.js
-├─ web/
-│  ├─ package.json
-│  ├─ pages/
-│  │   ├─ api/
-│  │   ├─ index.js
-│  │   ├─ toggl.js
-│  │   └─ habits.js
-│  └─ …
-├─ requirements.txt
-└─ README.md
+## Features
 
+- **Overview Dashboard**: At-a-glance view of key metrics and recent activities
+- **Fitness Tracking**: Workout history, VO2 max trends, activity types, and workout statistics
+- **Time Management**: Visualization of time spent across different categories (Deep Work, Learning, etc.)
+- **Habit Monitoring**: Habit streaks, completion rates, and yearly habit calendar view
+- **Responsive Design**: Mobile and desktop-friendly interface with dark theme
+- **Offline Fallbacks**: Graceful degradation with fallback data when database is unavailable
 
----
+## Architecture
 
-## Project Flow Diagram
+### Data Flow
 
 ```mermaid
 graph TD
-    A[GitHub Actions] -->|Triggers| B[main.py]
+    A[GitHub Actions] -->|Triggers Daily| B[main.py]
     B -->|Fetches Data| C[fetcher.py]
     C -->|Garmin API| D[Garmin Data]
     C -->|Strava API| E[Strava Data]
@@ -56,154 +39,201 @@ graph TD
     F -->|Supabase| H[fetch_metadata]
     B -->|Fetches Toggl Data| I[toggl_integration.py]
     I -->|Toggl API| J[Toggl Data]
-    I -->|Stores in| K[toggl_time]
+    I -->|Stores in| K[toggl_entries]
     B -->|Optional| L[post_to_social.py]
     L -->|Twitter/Instagram| M[Social Media]
     N[Google Forms] -->|Logs Habits| O[Google Sheet]
     O -->|Apps Script| P[habit_tracking]
     Q[Next.js Dashboard] -->|Queries| R[Supabase]
 ```
----
-Python Scripts and Functions
-config.py
-Purpose: Loads environment variables from a .env file for local use or from GitHub Actions secrets in CI.
-Functions:
-No functions; defines variables like GARMIN_USERNAME, SUPABASE_DB_HOST, etc.
-database.py
-Purpose: Manages database connections and operations for Supabase.
-Functions:
-get_db_connection(): Establishes a connection to the Supabase database.
-get_last_successful_fetch_date(conn): Retrieves the most recent successful fetch date.
-update_last_successful_fetch_date(conn, date_val): Updates the fetch log with the latest fetch date.
-store_workout_data(conn, activity): Inserts or updates workout data in the workout_stats table.
-fetcher.py
-Purpose: Retrieves fitness data from Garmin, with Strava as a fallback.
-Functions:
-fetch_garmin_daily(conn): Fetches Garmin activities since the last successful fetch or 7 days ago, filtering out duplicates.
-strava_fallback.py
-Purpose: Fetches data from Strava if Garmin data retrieval fails.
-Functions:
-strava_fetch_daily(): Retrieves the latest Strava activity as a fallback.
-vo2max.py
-Purpose: Handles VO2 max data storage and retrieval.
-Functions:
-create_vo2max_table_query(): Generates SQL to create the vo2max_tests table.
-insert_vo2max(conn, test_date, vo2max_value, notes): Adds or updates VO2 max records.
-get_latest_vo2max(conn): Fetches the most recent VO2 max value.
-toggl_integration.py
-Purpose: Integrates Toggl time-tracking data, mapping it to "Naval buckets" (e.g., Health/Fitness, Deep Work).
-Functions:
-bucket_for_project_or_tags(project_name, tags): Maps projects or tags to a Naval bucket.
-fetch_toggl_entries(since_days=7): Retrieves Toggl entries from the last since_days.
-aggregate_by_bucket_daily(entries): Aggregates entries by date and bucket.
-store_toggl_data(conn, daily_buckets): Stores aggregated data in the database.
-fetch_and_store_toggl_data(conn, since_days=7): Manages the full Toggl fetch-and-store process.
-main.py
-Purpose: Orchestrates data fetching, storage, and optional social media posting.
-Functions:
-main(): Runs the entire process: fetching Garmin data, storing it, fetching Toggl data, and updating the fetch log.
-post_to_social.py
-Purpose: Posts updates to Twitter and Instagram.
-Functions:
-post_twitter(image_path, message): Posts an image and message to Twitter.
-post_instagram(image_path, message): Posts an image and message to Instagram.
-main(): CLI entry point for social media posting.
 
+### Directory Structure
 
+```
+my-daily-proof/
+├─ .github/workflows/          # GitHub Actions workflows
+│  ├─ daily_workout.yml        # Daily data fetching job
+│  └─ vercel-deploy.yml        # Vercel deployment job
+├─ scripts/                    # Python scripts
+│  ├─ config.py                # Environment configuration
+│  ├─ database.py              # Database operations
+│  ├─ fetcher.py               # Garmin data fetching
+│  ├─ strava_fallback.py       # Strava fallback fetching
+│  ├─ toggl_integration.py     # Toggl time tracking
+│  ├─ vo2max.py                # VO2 max tracking
+│  ├─ habit_fetcher.py         # Habit data processing
+│  └─ main.py                  # Main orchestration script
+├─ web/                        # Next.js dashboard
+│  ├─ components/              # React components
+│  │  ├─ panels/               # Dashboard panels
+│  │  │  ├─ OverviewPanel.js   # Main dashboard view
+│  │  │  ├─ FitnessPanel.js    # Fitness metrics view
+│  │  │  ├─ TimePanel.js       # Time tracking view
+│  │  │  └─ HabitsPanel.js     # Habits tracking view
+│  │  └─ ui/                   # UI components
+│  ├─ pages/                   # Next.js pages
+│  │  ├─ api/                  # API routes
+│  │  ├─ index.js              # Main dashboard
+│  │  ├─ fitness.js            # Fitness page
+│  │  └─ habits.js             # Habits page
+│  ├─ utils/                   # Utility functions
+│  │  ├─ supabaseClient.js     # Supabase client
+│  │  └─ fallbackData.js       # Offline fallback data
+│  ├─ styles/                  # CSS styles
+│  ├─ package.json             # Node.js dependencies
+│  └─ next.config.js           # Next.js configuration
+└─ requirements.txt            # Python dependencies
+```
 
+## Technology Stack
+
+- **Backend**:
+  - Python 3.10+
+  - Supabase PostgreSQL
+  - GitHub Actions for automation
+  
+- **Data Sources**:
+  - Garmin Connect API
+  - Strava API (fallback)
+  - Toggl API
+  - Google Forms/Sheets
+  
+- **Frontend**:
+  - Next.js
+  - React
+  - Tailwind CSS
+  - Chart.js / react-chartjs-2
 
 ## Setup & Installation
 
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/egericke/Proof_Of_Work_r0.git
-cd Proof_Of_Work_r0
+git clone https://github.com/yourusername/my-daily-proof.git
+cd my-daily-proof
+```
 
-2. Python Dependencies
+### 2. Python Dependencies
+
 Install the required Python packages:
 
+```bash
 pip install -r requirements.txt
-- Requires Python 3.9 or higher.
-- For local development, create a .env file with your credentials (optional if running only on GitHub).
+```
 
-3. Node Dependencies
+### 3. Supabase Setup
 
-Install the Next.js dashboard dependencies:
+1. Create a Supabase project at [supabase.com](https://supabase.com)
+2. Create the following tables:
+   - `workout_stats`: Stores workout data
+   - `fetch_metadata`: Tracks data fetch status
+   - `toggl_entries`: Stores time tracking data
+   - `vo2max_tests`: Stores VO2 max readings
+   - `habit_tracking`: Stores habit data
+
+### 4. Environment Variables
+
+Create a `.env` file in the root directory with the following variables:
+
+```
+# Garmin
+GARMIN_USERNAME=your_garmin_username
+GARMIN_PASSWORD=your_garmin_password
+
+# Strava
+STRAVA_CLIENT_ID=your_strava_client_id
+STRAVA_CLIENT_SECRET=your_strava_client_secret
+STRAVA_REFRESH_TOKEN=your_strava_refresh_token
+
+# Supabase
+SUPABASE_URL=your_supabase_url
+SUPABASE_KEY=your_supabase_anon_key
+SUPABASE_DB_HOST=your_supabase_db_host
+SUPABASE_DB_PORT=your_supabase_db_port
+SUPABASE_DB_NAME=your_supabase_db_name
+SUPABASE_DB_USER=your_supabase_db_user
+SUPABASE_DB_PASSWORD=your_supabase_db_password
+
+# Toggl
+TOGGL_API_KEY=your_toggl_api_key
+
+# Optional: Social Media
+TWITTER_API_KEY=your_twitter_api_key
+TWITTER_API_SECRET=your_twitter_api_secret
+TWITTER_ACCESS_TOKEN=your_twitter_access_token
+TWITTER_ACCESS_SECRET=your_twitter_access_secret
+```
+
+### 5. Next.js Setup
+
+```bash
 cd web
 npm install
+```
 
-- Installs Next.js, React, Chart.js, and Supabase client libraries.
+### 6. GitHub Actions Setup
 
-GitHub Actions & Secrets
-- Navigate to your GitHub repository: Settings → Secrets and variables → Actions.
-- Add the following secrets:
-- GARMIN_USERNAME, GARMIN_PASSWORD
-- STRAVA_CLIENT_ID, STRAVA_CLIENT_SECRET, STRAVA_REFRESH_TOKEN
-- SUPABASE_DB_HOST, SUPABASE_DB_PORT, SUPABASE_DB_NAME, SUPABASE_DB_USER, SUPABASE_DB_PASSWORD
-- TOGGL_API_KEY
-- (Optional, later) Twitter/Instagram credentials for social posting
-- The .github/workflows/daily_workout.yml file uses these as environment variables.
+Add the environment variables as GitHub repository secrets to enable automated data collection.
 
+## Usage
 
+### Manual Data Collection
 
-Usage
+Run the Python script to fetch and store data:
 
-Daily Cron: GitHub Actions runs daily (configured in daily_workout.yml via on.schedule.cron). It:
-1. Fetches Garmin and Strava data from the last few days.
-2. Stores only new data in Supabase.
-3. Fetches Toggl data.
-4. (Future) Builds the Next.js site, screenshots it, and posts to social media if credentials are provided.
-
-Local Testing
-- Run python -m scripts.main to test the data-fetching script.
-- Run cd web && npm run dev to launch the Next.js dashboard locally.
-
-Database Setup
-The database schema is managed in database.py. The script interacts with the following tables:
-
-workout_stats: Stores Garmin activity data.
-fetch_metadata: Tracks the last successful fetch date to ensure only new data is fetched and stored.
-toggl_time: Stores aggregated Toggl time entries by bucket.
-Ensure the fetch_metadata table exists in Supabase. If not, run:
-CREATE TABLE fetch_metadata (last_fetch_date DATE);
-
-
-## Data Fetching
-The fetcher.py script fetches Garmin activities from the last successful fetch date (or 7 days ago if no previous fetch). It filters out activities already stored in the database to avoid duplicates.
-
-## Toggl Integration
-The toggl_integration.py script fetches Toggl time entries from the last 7 days, aggregates them by "Naval buckets" (e.g., Health/Fitness, Deep Work), and stores them in the toggl_time table. It uses the TOGGL_API_KEY from scripts.config for authentication.
-
-## Running the Script
-
+```bash
 python -m scripts.main
+```
 
-This will:
-- Fetch and store new Garmin activities.
-- Fetch and store Toggl time entries.
-- Update the fetch log with the current date.
-- For GitHub Actions, the workflow runs daily, fetching and storing new data automatically.
+### Starting the Dashboard
 
-## Google Forms & Habits
-A Google Form logs habits to a Google Sheet.
-A Google Apps Script sends new submissions to Supabase’s habit_tracking table.
-Contributing
-Fork and adapt the project as needed.
-Submit issues or pull requests for improvements.
+```bash
+cd web
+npm run dev
+```
+
+Visit `http://localhost:3000` to view the dashboard.
+
+### Production Deployment
+
+The project can be deployed to Vercel or GitHub Pages:
+
+1. Connect your GitHub repository to Vercel
+2. Configure the environment variables in Vercel
+3. Deploy the Next.js app
+
+## Data Sources Setup
+
+### Garmin Connect
+
+Requires a Garmin Connect account. Credentials are used to fetch activity data through the unofficial API.
+
+### Strava
+
+1. Create a Strava API application at [strava.com/settings/api](https://www.strava.com/settings/api)
+2. Generate refresh token using OAuth 2.0 flow
+3. Configure the tokens in environment variables
+
+### Toggl
+
+1. Create a Toggl account
+2. Get your API token from [track.toggl.com/profile](https://track.toggl.com/profile)
+3. Configure your projects to map to "buckets" (Deep Work, Learning, etc.)
+
+### Habit Tracking
+
+1. Create a Google Form for daily habit tracking
+2. Set up Google Apps Script to send data to Supabase
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
-Licensed under the MIT License (or choose your preferred license upon open-sourcing).
 
-## Final Notes
-Keep requirements.txt at the project root for Python dependencies.
-Keep package.json (and package-lock.json after npm install) in web/.
-This README guides setup and usage—update it as the project evolves.
+This project is licensed under the MIT License - see the LICENSE file for details.
 
-## Background & Influences
-This project draws inspiration from:
+## Acknowledgments
 
-Naval Ravikant: Prioritizing health, learning, and deep work as foundational elements of personal growth. The dashboard tracks time spent on these areas to align with Naval's ideals.
-Peter Attia: Tracking fitness metrics like VO2 max, strength, and other longevity indicators to optimize health over the long term. These metrics are visualized in the dashboard for continuous monitoring.
-Balaji Srinivasan: Public accountability through the "Proof of Workout" concept, encouraging transparency in fitness and productivity efforts by sharing progress publicly.
-James Clear's Atomic Habits: Emphasizing small, consistent habits to drive meaningful change. By making habit data public, this project reinforces accountability and encourages steady improvement.
+- Naval Ravikant, Peter Attia, Balaji Srinivasan, and James Clear for inspiration
+- Open-source libraries and APIs that made this project possible
