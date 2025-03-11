@@ -8,7 +8,9 @@ supabase
 garminconnect==0.2.25
 stravalib==0.10.4
 beautifulsoup4==4.12.3  
+fitdecode==0.10.0
 
 # Social Media (Twitter via Tweepy)
 tweepy==4.14.0
 Pillow==10.4.0
+
