@@ -106,3 +106,50 @@ def fetch_garmin_daily(conn: connection) -> List[dict]:
     except Exception as e:
         logger.error(f"Failed to fetch Garmin data: {str(e)}")
         return []
+
+
+from fitdecode import FitReader
+import os
+
+def parse_fit_file(file_path):
+    """Parse .FIT file and extract key metrics."""
+    data = {'heart_rate': [], 'distance': 0, 'time': 0}
+    try:
+        with FitReader(file_path) as fit:
+            for frame in fit:
+                if frame.name == 'record':
+                    if 'heart_rate' in frame.fields:
+                        data['heart_rate'].append(frame.get_value('heart_rate'))
+                    if 'distance' in frame.fields:
+                        data['distance'] = frame.get_value('distance')
+                    if 'timestamp' in frame.fields:
+                        data['time'] = frame.get_value('timestamp')
+    except Exception as e:
+        print(f"Error parsing .FIT file {file_path}: {e}")
+    return data
+
+def fetch_and_store_fit_files(start_date, end_date):
+    """Fetch .FIT files and store parsed data."""
+    client = login_to_garmin()
+    activities = client.get_activities_by_date(start_date, end_date)
+    if not os.path.exists("activities"):
+        os.makedirs("activities")
+    
+    for activity in activities:
+        activity_id = activity['activityId']
+        fit_path = f"activities/{activity_id}.fit"
+        try:
+            # Download .FIT file
+            fit_data = client.download_activity(activity_id, dl_fmt=client.ActivityDownloadFormat.ORIGINAL)
+            with open(fit_path, "wb") as f:
+                f.write(fit_data)
+            
+            # Parse and store
+            detailed_data = parse_fit_file(fit_path)
+            save_detailed_data(activity_id, detailed_data)
+        except Exception as e:
+            print(f"Error processing activity {activity_id}: {e}")
+        finally:
+            # Clean up temporary file
+            if os.path.exists(fit_path):
+                os.remove(fit_path)
