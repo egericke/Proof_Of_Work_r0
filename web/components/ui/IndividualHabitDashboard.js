@@ -39,6 +39,11 @@ import HabitCalendar from './HabitCalendar';
 // In the return statement:
 <HabitCalendar data={heatmapData} />
 
+// In IndividualHabitDashboard.js return:
+import DataChart from './DataChart';
+// ...
+<DataChart data={trendData} type="line" />
+  
 export default function IndividualHabitDashboard({ habitName, habitData }) {
   const [stats, setStats] = useState({
     currentStreak: 0,
