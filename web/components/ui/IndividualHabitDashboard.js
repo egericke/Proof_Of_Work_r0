@@ -35,6 +35,10 @@ const habitColors = {
   }
 };
 
+import HabitCalendar from './HabitCalendar';
+// In the return statement:
+<HabitCalendar data={heatmapData} />
+
 export default function IndividualHabitDashboard({ habitName, habitData }) {
   const [stats, setStats] = useState({
     currentStreak: 0,
