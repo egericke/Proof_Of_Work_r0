@@ -13,7 +13,6 @@ const habitColors = {
     'default': { border: 'rgba(156, 163, 175, 1)', secondary: 'rgba(156, 163, 175, 0.2)' } // gray
 };
 
-
 export default function IndividualHabitDashboard({ habitName, habitData }) {
   // State: totalAttemptedDays counts days from first entry to last entry/today
   const [stats, setStats] = useState({ currentStreak: 0, bestStreak: 0, completionRate: 0, totalCompleted: 0, totalAttemptedDays: 0 });
@@ -79,7 +78,7 @@ export default function IndividualHabitDashboard({ habitName, habitData }) {
             tempStreak++;
         } else {
             bestStreak = Math.max(bestStreak, tempStreak);
-            tempStreak = 0; // Reset if day is incomplete or missing in map
+            tempStreak = 0; // Reset if day is missing or incomplete in map
         }
     });
     bestStreak = Math.max(bestStreak, tempStreak); // Final check
@@ -130,7 +129,7 @@ export default function IndividualHabitDashboard({ habitName, habitData }) {
       ]
     });
 
-  }, [habitData, habitName]); // Add habitName dependency
+  }, [habitData, habitName]);
 
   // Chart options
   const chartOptions = {
@@ -148,7 +147,6 @@ export default function IndividualHabitDashboard({ habitName, habitData }) {
       },
       scales: {
           y: { min: 0, max: 100, ticks: { color: '#9ca3af' }, grid: { color: 'rgba(255, 255, 255, 0.1)' } },
-          // Adjust x-axis ticks for better readability if many dates
           x: { ticks: { color: '#9ca3af', autoSkip: true, maxTicksLimit: 10, maxRotation: 45, minRotation: 0 }, grid: { color: 'rgba(255, 255, 255, 0.1)' } }
       }
   };
@@ -164,7 +162,6 @@ export default function IndividualHabitDashboard({ habitName, habitData }) {
          {/* Updated Total Completed Card */}
          <div className="bg-gray-700/50 p-3 rounded">
              <p className="text-xs text-gray-400">Total Completed</p>
-             {/* Display as X / Y days */}
              <p className="text-xl font-bold">
                  {stats.totalCompleted} / {stats.totalAttemptedDays}
                  <span className="text-xs ml-1">days</span>
@@ -179,7 +176,8 @@ export default function IndividualHabitDashboard({ habitName, habitData }) {
            {trendData.labels.length > 0 ? (
              <Line data={trendData} options={chartOptions} />
            ) : (
-             <div className="flex items-center justify-center h-full text-gray-400">Not enough data for trend (need >7 days).</div>
+             // *** FIX: Escape the '>' symbol ***
+             <div className="flex items-center justify-center h-full text-gray-400">Not enough data for trend (need &gt;7 days).</div>
            )}
          </div>
        </div>
