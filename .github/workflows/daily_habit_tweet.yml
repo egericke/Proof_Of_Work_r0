@@ -14,7 +14,7 @@ jobs:
   tweet_habit_status:
     runs-on: ubuntu-latest
     env:
-      # Needed for Next.js build/run, even if using fallback data
+      # Needed for Next.js build/run
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_KEY }}
 
@@ -46,56 +46,25 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          cache: 'npm'
-          # Corrected: Only cache based on web/package-lock.json
-          cache-dependency-path: web/package-lock.json
+          # === REMOVED CACHING TEMPORARILY ===
+          # cache: 'npm'
+          # cache-dependency-path: web/package-lock.json
 
       - name: Install Puppeteer system dependencies
-        # TEMPORARY DEBUG: Allow continuing even if this step fails
-        continue-on-error: true
+        # Removed continue-on-error: true
         run: |
           echo "Installing Puppeteer system dependencies..."
           sudo apt-get update -qq
           # Combined install command
           sudo apt-get install -y --no-install-recommends --fix-missing \
-            libgbm-dev \
-            libasound2 \
-            libatk1.0-0 \
-            libc6 \
-            libcairo2 \
-            libcups2 \
-            libdbus-1-3 \
-            libexpat1 \
-            libfontconfig1 \
-            libgcc1 \
-            libgconf-2-4 \
-            libgdk-pixbuf2.0-0 \
-            libglib2.0-0 \
-            libgtk-3-0 \
-            libnspr4 \
-            libpango-1.0-0 \
-            libpangocairo-1.0-0 \
-            libstdc++6 \
-            libx11-6 \
-            libx11-xcb1 \
-            libxcb1 \
-            libxcomposite1 \
-            libxcursor1 \
-            libxdamage1 \
-            libxext6 \
-            libxfixes3 \
-            libxi6 \
-            libxrandr2 \
-            libxrender1 \
-            libxss1 \
-            libxtst6 \
-            ca-certificates \
-            fonts-liberation \
-            libappindicator1 \
-            libnss3 \
-            lsb-release \
-            xdg-utils \
-            wget
+            libgbm-dev libasound2 libatk1.0-0 libc6 libcairo2 libcups2 \
+            libdbus-1-3 libexpat1 libfontconfig1 libgcc1 libgconf-2-4 \
+            libgdk-pixbuf2.0-0 libglib2.0-0 libgtk-3-0 libnspr4 \
+            libpango-1.0-0 libpangocairo-1.0-0 libstdc++6 libx11-6 \
+            libx11-xcb1 libxcb1 libxcomposite1 libxcursor1 libxdamage1 \
+            libxext6 libxfixes3 libxi6 libxrandr2 libxrender1 libxss1 \
+            libxtst6 ca-certificates fonts-liberation libappindicator1 \
+            libnss3 lsb-release xdg-utils wget
           echo "System dependencies installation attempted."
 
       - name: DEBUG - Show web directory contents
@@ -106,7 +75,15 @@ jobs:
 
       - name: Install web dependencies
         working-directory: ./web
-        run: npm ci --loglevel error || exit 1 # Added loglevel, exit if install fails
+        # Ensure package-lock.json exists if using ci
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci --loglevel error || exit 1
+          else
+            echo "web/package-lock.json not found, running npm install"
+            npm install --loglevel error || exit 1
+          fi
+
 
       - name: DEBUG - Show scripts directory contents
         working-directory: ./scripts
@@ -116,8 +93,8 @@ jobs:
 
       - name: Install screenshot script dependencies
         working-directory: ./scripts
-        # Simplified: Directly install puppeteer as it's the main dep here
-        run: npm install puppeteer --loglevel error || exit 1
+        # Directly install puppeteer
+        run: npm install puppeteer --loglevel error --no-save || exit 1 # Use --no-save if package.json shouldn't change
 
       - name: Build Next.js app for local serving
         working-directory: ./web
@@ -145,12 +122,13 @@ jobs:
           # Check if the server process is still running and responding
           if kill -0 $SERVER_PID > /dev/null 2>&1; then
              # Check specific habits page
-             curl --fail --max-time 10 http://localhost:3000/habits || (echo "::error::Server running but did not respond on /habits after 30s!" && kill $SERVER_PID && exit 1)
+             curl --fail --max-time 10 --silent --output /dev/null http://localhost:3000/habits || (echo "::error::Server running but did not respond on /habits after 30s! Killing server." && kill $SERVER_PID && exit 1)
           else
              echo "::error::Server process $SERVER_PID is not running!"
              exit 1
           fi
           echo "Server seems ready."
+
 
       - name: Take screenshot of Habits page
         run: node scripts/screenshot_habits.js
@@ -171,6 +149,7 @@ jobs:
             echo "SERVER_PID was not set in env, cannot kill server."
           fi
 
+      # --- Python Steps Follow ---
       - name: Set up Python 3.10
         uses: actions/setup-python@v5
         with:
@@ -191,8 +170,6 @@ jobs:
 
       - name: Generate Tweet Message
         id: tweet_msg
-        # Uses the TZ env var set at the job level
-        # Gets the current time from the runner
         run: |
           current_datetime=$(date +'%Y-%m-%d %H:%M:%S %Z')
           echo "Generated message time: $current_datetime"
@@ -201,7 +178,6 @@ jobs:
       - name: Post Habits Screenshot to Twitter
         run: python scripts/post_to_social.py --twitter scripts/habit_screenshot.png "$TWEET_MESSAGE"
         env:
-          # Pass secrets explicitly, though config.py should also read them
           TWITTER_API_KEY: ${{ env.TWITTER_API_KEY }}
           TWITTER_API_SECRET: ${{ env.TWITTER_API_SECRET }}
           TWITTER_ACCESS_TOKEN: ${{ env.TWITTER_ACCESS_TOKEN }}
@@ -216,4 +192,4 @@ jobs:
             scripts/habit_screenshot.png
             scripts/debug_screenshot_error.png # Include debug screenshot if it exists
             scripts/*.log # Include any logs from scripts dir if generated
-          if-no-files-found: ignore # Don't fail if log/debug files aren't created
+          if-no-files-found: ignore
