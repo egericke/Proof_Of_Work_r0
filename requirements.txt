@@ -1,3 +1,4 @@
+# requirements.txt
 # Core
 psycopg2==2.9.6
 requests==2.31.0
@@ -7,8 +8,8 @@ supabase
 # Garmin & Strava
 garminconnect==0.2.25
 stravalib==0.10.4
-beautifulsoup4==4.12.3  
+beautifulsoup4==4.12.3
 
 # Social Media (Twitter via Tweepy)
 tweepy==4.14.0
-Pillow==10.4.0
+Pillow==10.4.0 # Added for image handling
