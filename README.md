@@ -6,6 +6,8 @@ A personal dashboard that integrates fitness data from Garmin and Strava, time-t
 
 By making fitness, time management, and habit data public, this project aims to promote accountability and continuous improvement.
 
+**New:** Includes daily automated Twitter posts showing the Habit Status!
+
 ## Inspiration
 
 This dashboard is influenced by several thought leaders:
@@ -21,6 +23,7 @@ This dashboard is influenced by several thought leaders:
 - **Fitness Tracking**: Workout history, VO2 max trends, activity types, and workout statistics
 - **Time Management**: Visualization of time spent across different categories (Deep Work, Learning, etc.)
 - **Habit Monitoring**: Habit streaks, completion rates, and yearly habit calendar view
+- **Automated Twitter Posting**: Daily screenshot of the Habits Status page posted to Twitter with a timestamp.
 - **Responsive Design**: Mobile and desktop-friendly interface with dark theme
 - **Offline Fallbacks**: Graceful degradation with fallback data when database is unavailable
 
@@ -30,7 +33,7 @@ This dashboard is influenced by several thought leaders:
 
 ```mermaid
 graph TD
-    A[GitHub Actions] -->|Triggers Daily| B[main.py]
+    A[GitHub Actions] -->|Triggers Daily| B(main.py)
     B -->|Fetches Data| C[fetcher.py]
     C -->|Garmin API| D[Garmin Data]
     C -->|Strava API| E[Strava Data]
@@ -40,11 +43,23 @@ graph TD
     B -->|Fetches Toggl Data| I[toggl_integration.py]
     I -->|Toggl API| J[Toggl Data]
     I -->|Stores in| K[toggl_entries]
-    B -->|Optional| L[post_to_social.py]
-    L -->|Twitter/Instagram| M[Social Media]
-    N[Google Forms] -->|Logs Habits| O[Google Sheet]
-    O -->|Apps Script| P[habit_tracking]
-    Q[Next.js Dashboard] -->|Queries| R[Supabase]
+    P[habit_tracking] <--|Apps Script| O[Google Sheet] <--|Logs Habits| N[Google Forms]
+
+    subgraph "Frontend & Automation"
+        direction LR
+        Q[Next.js Dashboard] -->|Queries| R[Supabase Tables]
+        A -->|Runs| S(Screenshot & Post)
+        S -->|Screenshots| Q
+        S -->|Posts To| M[Twitter API]
+    end
+
+    R --- G
+    R --- H
+    R --- K
+    R --- P
+    R --> V[vo2max_tests]
+
+    B --> V
 ```
 
 ### Directory Structure
@@ -52,37 +67,35 @@ graph TD
 ```
 my-daily-proof/
 ├─ .github/workflows/          # GitHub Actions workflows
-│  ├─ daily_workout.yml        # Daily data fetching job
-│  └─ vercel-deploy.yml        # Vercel deployment job
-├─ scripts/                    # Python scripts
-│  ├─ config.py                # Environment configuration
-│  ├─ database.py              # Database operations
-│  ├─ fetcher.py               # Garmin data fetching
-│  ├─ strava_fallback.py       # Strava fallback fetching
-│  ├─ toggl_integration.py     # Toggl time tracking
-│  ├─ vo2max.py                # VO2 max tracking
-│  ├─ habit_fetcher.py         # Habit data processing
-│  └─ main.py                  # Main orchestration script
+│  ├─ daily_workout.yml       # Daily data fetch & Twitter post job (Updated)
+│  ├─ vercel-deploy.yml       # Vercel deployment job
+│  └─ daily_workout.yml       # Daily data fetch & Twitter post job (Updated)
+├─ scripts/                    # Python & Node.js scripts
+│  ├─ config.py               # Environment configuration
+│  ├─ database.py             # Database operations
+│  ├─ fetcher.py              # Garmin data fetching
+│  ├─ strava_fallback.py      # Strava fallback fetching
+│  ├─ toggl_integration.py    # Toggl time tracking
+│  ├─ vo2max.py               # VO2 max tracking
+│  ├─ habit_fetcher.py        # Habit data processing
+│  ├─ post_to_social.py       # Handles posting (Used by Action)
+│  ├─ screenshot_habits.js    # NEW: Takes screenshot of habits page
+│  ├─ package.json            # Node.js deps for scripts (puppeteer)
+│  └─ main.py                 # Main data fetching orchestration script
 ├─ web/                        # Next.js dashboard
-│  ├─ components/              # React components
-│  │  ├─ panels/               # Dashboard panels
-│  │  │  ├─ OverviewPanel.js   # Main dashboard view
-│  │  │  ├─ FitnessPanel.js    # Fitness metrics view
-│  │  │  ├─ TimePanel.js       # Time tracking view
-│  │  │  └─ HabitsPanel.js     # Habits tracking view
-│  │  └─ ui/                   # UI components
-│  ├─ pages/                   # Next.js pages
-│  │  ├─ api/                  # API routes
-│  │  ├─ index.js              # Main dashboard
-│  │  ├─ fitness.js            # Fitness page
-│  │  └─ habits.js             # Habits page
-│  ├─ utils/                   # Utility functions
-│  │  ├─ supabaseClient.js     # Supabase client
-│  │  └─ fallbackData.js       # Offline fallback data
-│  ├─ styles/                  # CSS styles
-│  ├─ package.json             # Node.js dependencies
-│  └─ next.config.js           # Next.js configuration
-└─ requirements.txt            # Python dependencies
+│  ├─ components/             # React components
+│  │  ├─ panels/              # Dashboard panels (HabitsPanel Updated)
+│  │  └─ ui/                  # UI components
+│  ├─ pages/                  # Next.js pages (habits.js used for screenshot)
+│  │  ├─ api/                 # API routes
+│  │  └─ index.js             # Main dashboard entry
+│  ├─ utils/                  # Utility functions
+│  │  ├─ supabaseClient.js    # Supabase client (Updated for fallback robustness)
+│  │  └─ fallbackData.js      # Offline fallback data
+│  ├─ styles/                 # CSS styles
+│  ├─ package.json            # Node.js dependencies for web app
+│  └─ next.config.js          # Next.js configuration
+└─ requirements.txt            # Python dependencies (Updated)
 ```
 
 ## Technology Stack
@@ -103,6 +116,10 @@ my-daily-proof/
   - React
   - Tailwind CSS
   - Chart.js / react-chartjs-2
+ 
+- **Automation**:
+  - Puppeteer (for screenshots)
+  - Tweepy (for Twitter posting)
 
 ## Setup & Installation
 
@@ -121,7 +138,16 @@ Install the required Python packages:
 pip install -r requirements.txt
 ```
 
-### 3. Supabase Setup
+### 3. Node.js Dependencies (Scripts)
+Install dependencies for the screenshot script:
+
+```bash
+cd scripts
+npm install
+cd ..
+```
+
+### 4. Supabase Setup
 
 1. Create a Supabase project at [supabase.com](https://supabase.com)
 2. Create the following tables:
@@ -130,8 +156,9 @@ pip install -r requirements.txt
    - `toggl_entries`: Stores time tracking data
    - `vo2max_tests`: Stores VO2 max readings
    - `habit_tracking`: Stores habit data
+   - `habit_analytics`: (optional, used by habit_fetcher.py)
 
-### 4. Environment Variables
+### 5. Environment Variables
 
 Create a `.env` file in the root directory with the following variables:
 
@@ -164,7 +191,7 @@ TWITTER_ACCESS_TOKEN=your_twitter_access_token
 TWITTER_ACCESS_SECRET=your_twitter_access_secret
 ```
 
-### 5. Next.js Setup
+### 6. Next.js Setup
 
 ```bash
 cd web
@@ -173,7 +200,7 @@ npm install
 
 ### 6. GitHub Actions Setup
 
-Add the environment variables as GitHub repository secrets to enable automated data collection.
+Add ALL the environment variables listed above (including the new Twitter keys) as GitHub repository secrets. The workflow (daily_workout.yml) is configured to read these secrets.
 
 ## Usage
 
@@ -192,7 +219,17 @@ cd web
 npm run dev
 ```
 
-Visit `http://localhost:3000` to view the dashboard.
+Visit `http://localhost:3000` to view the dashboard. Visit `http://localhost:3000/habits` to see the page that will be screenshotted.
+
+### Daily Automation
+The GitHub Action (.github/workflows/daily_workout.yml) is scheduled to run daily. It will:
+
+1. Fetch workout and Toggl data using the Python scripts.
+2. Build and run the Next.js app locally within the action runner.
+3. Take a screenshot of the Habits page (/habits) using Puppeteer.
+4. Stop the local Next.js server.
+5. Post the screenshot along with the current date/time to Twitter using the credentials stored in secrets.
+
 
 ### Production Deployment
 
@@ -212,7 +249,7 @@ Requires a Garmin Connect account. Credentials are used to fetch activity data t
 
 1. Create a Strava API application at [strava.com/settings/api](https://www.strava.com/settings/api)
 2. Generate refresh token using OAuth 2.0 flow
-3. Configure the tokens in environment variables
+3. Configure your projects to map to "buckets" (Deep Work, Learning, etc.). The toggl_integration.py script maps project names to the project_name column in toggl_entries.
 
 ### Toggl
 
@@ -224,6 +261,12 @@ Requires a Garmin Connect account. Credentials are used to fetch activity data t
 
 1. Create a Google Form for daily habit tracking
 2. Set up Google Apps Script to send data to Supabase
+
+### Twitter
+
+1. Apply for a Twitter Developer account and create an App with v1.1 API access (Essential or Elevated access might be needed for posting media).
+2. Generate API Key, API Secret Key, Access Token, and Access Token Secret for your App.
+3. Add these four keys as GitHub repository secrets (TWITTER_API_KEY, TWITTER_API_SECRET, TWITTER_ACCESS_TOKEN, TWITTER_ACCESS_SECRET).
 
 ## Contributing
 
