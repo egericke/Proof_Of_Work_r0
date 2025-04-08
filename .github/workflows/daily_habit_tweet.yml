@@ -1,0 +1,153 @@
+# .github/workflows/daily_habit_tweet.yml
+name: Daily Habit Tweet
+
+on:
+  schedule:
+    # Runs daily at 1:30 AM UTC (adjust as needed, should be after data fetch)
+    - cron: '30 1 * * *'
+  workflow_dispatch:     # Allows manual triggering
+
+permissions:
+  contents: read       # Read access to checkout the code
+
+jobs:
+  tweet_habit_status:
+    runs-on: ubuntu-latest
+    env:
+      # Needed for Next.js build/run, even if using fallback data
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_KEY }}
+
+      # Twitter API Credentials
+      TWITTER_API_KEY: ${{ secrets.TWITTER_API_KEY }}
+      TWITTER_API_SECRET: ${{ secrets.TWITTER_API_SECRET }}
+      TWITTER_ACCESS_TOKEN: ${{ secrets.TWITTER_ACCESS_TOKEN }}
+      TWITTER_ACCESS_SECRET: ${{ secrets.TWITTER_ACCESS_SECRET }}
+
+      # Set NODE_ENV for Next.js build
+      NODE_ENV: production
+      # Set Timezone for Tweet Timestamp (Adjust as needed)
+      TZ: America/New_York # Example: Use New York Timezone
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Verify Twitter environment variables
+        run: |
+          echo "Verifying Twitter env vars..."
+          if [ -z "$TWITTER_API_KEY" ] || [ -z "$TWITTER_API_SECRET" ] || [ -z "$TWITTER_ACCESS_TOKEN" ] || [ -z "$TWITTER_ACCESS_SECRET" ]; then
+            echo "::error::Required Twitter environment variables missing! Cannot post tweet."
+            exit 1
+          fi
+          echo "Twitter env vars seem ok."
+
+      - name: Set up Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: |
+            web/package-lock.json
+            scripts/package-lock.json # Cache script deps too if lock file exists
+
+      - name: Install web dependencies
+        working-directory: ./web
+        run: npm ci
+
+      - name: Install screenshot script dependencies
+        working-directory: ./scripts
+        run: npm ci # Installs puppeteer
+
+      - name: Install Puppeteer system dependencies
+        run: |
+          echo "Installing Puppeteer system dependencies..."
+          sudo apt-get update
+          sudo apt-get install -yq libgbm-dev libasound2 libatk1.0-0 libc6 libcairo2 libcups2 libdbus-1-3 libexpat1 libfontconfig1 libgcc1 libgconf-2-4 libgdk-pixbuf2.0-0 libglib2.0-0 libgtk-3-0 libnspr4 libpango-1.0-0 libpangocairo-1.0-0 libstdc++6 libx11-6 libx11-xcb1 libxcb1 libxcomposite1 libxcursor1 libxdamage1 libxext6 libxfixes3 libxi6 libxrandr2 libxrender1 libxss1 libxtst6 ca-certificates fonts-liberation libappindicator1 libnss3 lsb-release xdg-utils wget --fix-missing
+          echo "System dependencies installed."
+
+
+      - name: Build Next.js app for local serving
+        working-directory: ./web
+        run: npm run build
+
+      - name: Start Next.js server locally
+        working-directory: ./web
+        run: |
+          npm run start & # Run in background
+          echo "SERVER_PID=$!" >> $GITHUB_ENV # Save PID to kill later
+          echo "Server starting in background (PID: $!)"
+
+      - name: Wait for server to become ready
+        run: |
+          echo "Waiting 30 seconds for server to be ready..."
+          sleep 30
+          echo "Attempting to check server status..."
+          # Simple check if server responds on the root path (adjust path if needed)
+          curl --fail --max-time 10 http://localhost:3000/habits || (echo "::error::Server did not respond on /habits after 30s!" && exit 1)
+          echo "Server seems ready."
+
+      - name: Take screenshot of Habits page
+        run: node scripts/screenshot_habits.js
+        continue-on-error: false # Fail the job if screenshot fails
+
+      - name: Stop Next.js server
+        # Always run this, even if screenshot fails, to clean up the process
+        if: always()
+        run: |
+          if [ -n "$SERVER_PID" ]; then
+            echo "Stopping server with PID $SERVER_PID..."
+            # Use kill command with appropriate signal, try TERM first, then KILL
+            kill -TERM $SERVER_PID 2>/dev/null || kill -KILL $SERVER_PID 2>/dev/null || echo "Server process $SERVER_PID not found or already stopped."
+            # Wait a moment to ensure it's stopped
+            sleep 5
+          else
+            echo "SERVER_PID was not set, cannot kill server."
+          fi
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Cache Python dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt # Ensure Pillow is in requirements.txt
+
+      - name: Generate Tweet Message
+        id: tweet_msg
+        # Uses the TZ env var set at the job level
+        # Gets the current time from the runner
+        run: |
+          current_datetime=$(date +'%Y-%m-%d %H:%M:%S %Z')
+          echo "Generated message time: $current_datetime"
+          echo "TWEET_MESSAGE=$current_datetime - Proof of Work" >> $GITHUB_ENV
+
+      - name: Post Habits Screenshot to Twitter
+        run: python scripts/post_to_social.py --twitter scripts/habit_screenshot.png "$TWEET_MESSAGE"
+        env:
+          # Pass secrets explicitly, though config.py should also read them
+          TWITTER_API_KEY: ${{ env.TWITTER_API_KEY }}
+          TWITTER_API_SECRET: ${{ env.TWITTER_API_SECRET }}
+          TWITTER_ACCESS_TOKEN: ${{ env.TWITTER_ACCESS_TOKEN }}
+          TWITTER_ACCESS_SECRET: ${{ env.TWITTER_ACCESS_SECRET }}
+
+      - name: Upload debug logs and screenshot
+        if: always() # Upload artifacts even if prior steps fail
+        uses: actions/upload-artifact@v4
+        with:
+          name: habit-tweet-logs-${{ github.run_id }}
+          path: |
+            scripts/habit_screenshot.png
+            scripts/debug_screenshot_error.png # Include debug screenshot if it exists
+            scripts/*.log # Include any logs from scripts dir if generated
+          if-no-files-found: ignore # Don't fail if log/debug files aren't created
