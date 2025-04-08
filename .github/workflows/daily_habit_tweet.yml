@@ -47,17 +47,56 @@ jobs:
         with:
           node-version: '18'
           cache: 'npm'
-          # Correct multiline syntax for cache paths
-          cache-dependency-path: |
-            web/package-lock.json
-            scripts/package-lock.json
+          # Corrected: Only cache based on web/package-lock.json
+          cache-dependency-path: web/package-lock.json
 
       - name: Install Puppeteer system dependencies
+        # TEMPORARY DEBUG: Allow continuing even if this step fails
+        continue-on-error: true
         run: |
           echo "Installing Puppeteer system dependencies..."
-          sudo apt-get update
-          sudo apt-get install -yq libgbm-dev libasound2 libatk1.0-0 libc6 libcairo2 libcups2 libdbus-1-3 libexpat1 libfontconfig1 libgcc1 libgconf-2-4 libgdk-pixbuf2.0-0 libglib2.0-0 libgtk-3-0 libnspr4 libpango-1.0-0 libpangocairo-1.0-0 libstdc++6 libx11-6 libx11-xcb1 libxcb1 libxcomposite1 libxcursor1 libxdamage1 libxext6 libxfixes3 libxi6 libxrandr2 libxrender1 libxss1 libxtst6 ca-certificates fonts-liberation libappindicator1 libnss3 lsb-release xdg-utils wget --fix-missing
-          echo "System dependencies installed."
+          sudo apt-get update -qq
+          # Combined install command
+          sudo apt-get install -y --no-install-recommends --fix-missing \
+            libgbm-dev \
+            libasound2 \
+            libatk1.0-0 \
+            libc6 \
+            libcairo2 \
+            libcups2 \
+            libdbus-1-3 \
+            libexpat1 \
+            libfontconfig1 \
+            libgcc1 \
+            libgconf-2-4 \
+            libgdk-pixbuf2.0-0 \
+            libglib2.0-0 \
+            libgtk-3-0 \
+            libnspr4 \
+            libpango-1.0-0 \
+            libpangocairo-1.0-0 \
+            libstdc++6 \
+            libx11-6 \
+            libx11-xcb1 \
+            libxcb1 \
+            libxcomposite1 \
+            libxcursor1 \
+            libxdamage1 \
+            libxext6 \
+            libxfixes3 \
+            libxi6 \
+            libxrandr2 \
+            libxrender1 \
+            libxss1 \
+            libxtst6 \
+            ca-certificates \
+            fonts-liberation \
+            libappindicator1 \
+            libnss3 \
+            lsb-release \
+            xdg-utils \
+            wget
+          echo "System dependencies installation attempted."
 
       - name: DEBUG - Show web directory contents
         working-directory: ./web
@@ -67,7 +106,7 @@ jobs:
 
       - name: Install web dependencies
         working-directory: ./web
-        run: npm ci || exit 1 # Exit if install fails
+        run: npm ci --loglevel error || exit 1 # Added loglevel, exit if install fails
 
       - name: DEBUG - Show scripts directory contents
         working-directory: ./scripts
@@ -77,15 +116,8 @@ jobs:
 
       - name: Install screenshot script dependencies
         working-directory: ./scripts
-        # Use install if lock file might be missing, otherwise use ci
-        # If scripts/package-lock.json DEFINITELY exists, use: npm ci || exit 1
-        run: |
-          if [ -f package-lock.json ]; then
-            npm ci || exit 1
-          else
-            echo "scripts/package-lock.json not found, running npm install"
-            npm install || exit 1
-          fi
+        # Simplified: Directly install puppeteer as it's the main dep here
+        run: npm install puppeteer --loglevel error || exit 1
 
       - name: Build Next.js app for local serving
         working-directory: ./web
@@ -112,6 +144,7 @@ jobs:
           echo "Attempting to check server status..."
           # Check if the server process is still running and responding
           if kill -0 $SERVER_PID > /dev/null 2>&1; then
+             # Check specific habits page
              curl --fail --max-time 10 http://localhost:3000/habits || (echo "::error::Server running but did not respond on /habits after 30s!" && kill $SERVER_PID && exit 1)
           else
              echo "::error::Server process $SERVER_PID is not running!"
