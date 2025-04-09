@@ -1,14 +1,13 @@
-# .github/workflows/daily_habit_tweet.yml
 name: Daily Habit Tweet
 
 on:
   schedule:
-    # Runs daily at 1:30 AM UTC (adjust as needed, should be after data fetch)
+    # Runs daily at 1:30 AM UTC (9:30 PM EST the previous day with TZ=America/New_York)
     - cron: '30 1 * * *'
-  workflow_dispatch:     # Allows manual triggering
+  workflow_dispatch: # Allows manual triggering
 
 permissions:
-  contents: read       # Read access to checkout the code
+  contents: read # Read access to checkout the code
 
 jobs:
   tweet_habit_status:
@@ -26,8 +25,8 @@ jobs:
 
       # Set NODE_ENV for Next.js build
       NODE_ENV: production
-      # Set Timezone for Tweet Timestamp (Adjust as needed)
-      TZ: America/New_York # Example: Use New York Timezone
+      # Set Timezone for Tweet Timestamp
+      TZ: America/New_York # New York Timezone (EST/EDT)
 
     steps:
       - name: Checkout Code
@@ -40,19 +39,24 @@ jobs:
             echo "::error::Required Twitter environment variables missing! Cannot post tweet."
             exit 1
           fi
-          echo "Twitter env vars seem ok."
+          echo "Twitter env vars verified."
 
       - name: Set up Node.js 18
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          # Caching disabled to rule out previous errors
-          # cache: 'npm'
-          # cache-dependency-path: web/package-lock.json
+
+      - name: Cache Node.js dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('web/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
 
       - name: Install Puppeteer system dependencies
         run: |
-          echo "Installing Puppeteer system dependencies..."
+          echo "Installing Puppeteer system dependencies for Ubuntu 24.04..."
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends --fix-missing \
             ca-certificates fonts-liberation libasound2t64 libatk-bridge2.0-0t64 libatk1.0-0t64 \
@@ -61,8 +65,21 @@ jobs:
             libpangocairo-1.0-0 libstdc++6 libx11-6 libx11-xcb1 libxcb1 libxcomposite1 libxcursor1 \
             libxdamage1 libxext6 libxfixes3 libxi6 libxrandr2 libxrender1 libxss1 libxtst6 \
             lsb-release wget xdg-utils || { echo "::error::Failed to install system dependencies"; exit 1; }
-          echo "System dependencies installation completed."
+          echo "System dependencies installed."
 
+      - name: Install web dependencies
+        working-directory: ./web
+        run: |
+          echo "Installing web dependencies..."
+          if [ -f package-lock.json ]; then
+            npm ci --loglevel error || { echo "::error::npm ci failed"; exit 1; }
+          else
+            echo "package-lock.json not found, running npm install"
+            npm install --loglevel error || { echo "::error::npm install failed"; exit 1; }
+          fi
+          # Ensure Tailwind CSS and related tools are installed
+          npm install --save-dev tailwindcss postcss autoprefixer --loglevel error || { echo "::error::Failed to install Tailwind CSS dependencies"; exit 1; }
+          echo "Web dependencies installed."
 
       - name: DEBUG - Show web directory contents
         working-directory: ./web
@@ -70,38 +87,28 @@ jobs:
           pwd
           ls -la
 
-      - name: Install web dependencies
-        working-directory: ./web
-        run: |
-          if [ -f package-lock.json ]; then
-            npm ci --loglevel error || exit 1
-          else
-            echo "web/package-lock.json not found, running npm install"
-            npm install --loglevel error || exit 1
-          fi
-
-      - name: DEBUG - Show scripts directory contents
-        working-directory: ./scripts
-        run: |
-          pwd
-          ls -la
-
       - name: Install screenshot script dependencies
         working-directory: ./scripts
-        # Directly install puppeteer
-        run: npm install puppeteer --loglevel error --no-save || exit 1
+        run: |
+          echo "Installing screenshot script dependencies..."
+          npm install puppeteer --loglevel error --no-save || { echo "::error::Failed to install Puppeteer"; exit 1; }
+          echo "Screenshot dependencies installed."
 
-      - name: Build Next.js app for local serving
+      - name: Build Next.js app
         working-directory: ./web
-        run: npm run build || exit 1
+        run: |
+          echo "Building Next.js app..."
+          npm run build || { echo "::error::Next.js build failed"; exit 1; }
+          echo "Next.js app built."
 
       - name: Start Next.js server locally
         working-directory: ./web
         run: |
+          echo "Starting Next.js server in background..."
           npm run start &
           SERVER_PID=$!
           echo "SERVER_PID=$SERVER_PID" >> $GITHUB_ENV
-          echo "Server starting in background (PID: $SERVER_PID)"
+          echo "Server started with PID: $SERVER_PID"
           if [ -z "$SERVER_PID" ]; then
             echo "::error::Failed to capture server PID!"
             exit 1
@@ -109,20 +116,22 @@ jobs:
 
       - name: Wait for server to become ready
         run: |
-          echo "Waiting 30 seconds for server to be ready..."
+          echo "Waiting 30 seconds for server to start..."
           sleep 30
-          echo "Attempting to check server status..."
-          if kill -0 $SERVER_PID > /dev/null 2>&1; then
-             curl --fail --max-time 10 --silent --output /dev/null http://localhost:3000/habits || (echo "::error::Server running but did not respond on /habits after 30s! Killing server." && kill $SERVER_PID && exit 1)
+          echo "Checking server status..."
+          if kill -0 ${{ env.SERVER_PID }} >/dev/null 2>&1; then
+            curl --fail --max-time 10 --silent --output /dev/null http://localhost:3000/habits || { echo "::error::Server running but /habits endpoint failed after 30s! Killing server."; kill ${{ env.SERVER_PID }}; exit 1; }
           else
-             echo "::error::Server process $SERVER_PID is not running!"
-             exit 1
+            echo "::error::Server process ${{ env.SERVER_PID }} is not running!"
+            exit 1
           fi
-          echo "Server seems ready."
+          echo "Server is ready."
 
       - name: Take screenshot of Habits page
-        run: node scripts/screenshot_habits.js
-        continue-on-error: false
+        run: |
+          echo "Taking screenshot..."
+          node scripts/screenshot_habits.js || { echo "::error::Screenshot script failed"; exit 1; }
+          echo "Screenshot taken."
 
       - name: Stop Next.js server
         if: always()
@@ -132,10 +141,9 @@ jobs:
             kill -TERM ${{ env.SERVER_PID }} 2>/dev/null || kill -KILL ${{ env.SERVER_PID }} 2>/dev/null || echo "Server process ${{ env.SERVER_PID }} not found or already stopped."
             sleep 5
           else
-            echo "SERVER_PID was not set in env, cannot kill server."
+            echo "SERVER_PID was not set, cannot kill server."
           fi
 
-      # --- Python Steps Follow ---
       - name: Set up Python 3.10
         uses: actions/setup-python@v5
         with:
@@ -151,8 +159,10 @@ jobs:
 
       - name: Install Python dependencies
         run: |
+          echo "Installing Python dependencies..."
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r requirements.txt || { echo "::error::Failed to install Python dependencies"; exit 1; }
+          echo "Python dependencies installed."
 
       - name: Generate Tweet Message
         id: tweet_msg
@@ -162,12 +172,10 @@ jobs:
           echo "TWEET_MESSAGE=$current_datetime - Proof of Work" >> $GITHUB_ENV
 
       - name: Post Habits Screenshot to Twitter
-        run: python scripts/post_to_social.py --twitter scripts/habit_screenshot.png "$TWEET_MESSAGE"
-        env:
-          TWITTER_API_KEY: ${{ env.TWITTER_API_KEY }}
-          TWITTER_API_SECRET: ${{ env.TWITTER_API_SECRET }}
-          TWITTER_ACCESS_TOKEN: ${{ env.TWITTER_ACCESS_TOKEN }}
-          TWITTER_ACCESS_SECRET: ${{ env.TWITTER_ACCESS_SECRET }}
+        run: |
+          echo "Posting to Twitter..."
+          python scripts/post_to_social.py --twitter scripts/habit_screenshot.png "$TWEET_MESSAGE" || { echo "::error::Twitter post failed"; exit 1; }
+          echo "Tweet posted."
 
       - name: Upload debug logs and screenshot
         if: always()
