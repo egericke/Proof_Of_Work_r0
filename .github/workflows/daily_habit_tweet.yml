@@ -45,9 +45,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          # Cache npm packages globally, key based on the committed lock file
+          # Cache npm packages globally, key based on package.json
           cache: 'npm'
-          cache-dependency-path: 'web/package-lock.json' # This should now work
+          cache-dependency-path: 'web/package.json' # CORRECTED PATH
 
       - name: Install Puppeteer system dependencies
         run: |
@@ -64,13 +64,13 @@ jobs:
       - name: Install web dependencies
         working-directory: ./web
         run: |
-          echo "Installing web dependencies using npm ci..."
-          # Use npm ci now that package-lock.json is committed
-          # Keep verbose logging for now to catch any other potential errors
-          npm ci || { echo "::error::npm ci failed in ./web"; exit 1; }
+          echo "Installing web dependencies using npm install (no package-lock.json found)..."
+          # Use npm install because package-lock.json is not present
+          # Keep verbose logging to catch errors
+          npm install || { echo "::error::npm install failed in ./web"; exit 1; }
           echo "Web dependencies installation complete."
 
-      # Keep the debug step for one more run, just in case install fails again
+      # Keep the debug step for this run to confirm install succeeded
       - name: DEBUG - Show web node_modules contents (optional)
         if: failure()
         working-directory: ./web
@@ -89,13 +89,11 @@ jobs:
         run: |
           echo "Installing screenshot script dependencies..."
           if [ -f package.json ]; then
-            # Assuming scripts might also benefit from ci if lock file exists
-            if [ -f package-lock.json ]; then
+            if [ -f package-lock.json ]; then # Check if scripts has a lock file
                 npm ci || { echo "::error::npm ci failed in ./scripts"; exit 1; }
             else
                 npm install || { echo "::error::npm install failed in ./scripts"; exit 1; }
             fi
-            # Ensure puppeteer is installed
             npm list puppeteer || npm install puppeteer@^23.5.0 --no-save || { echo "::error::Failed to install Puppeteer in ./scripts"; exit 1; }
           else
              echo "No package.json in ./scripts, attempting direct puppeteer install"
