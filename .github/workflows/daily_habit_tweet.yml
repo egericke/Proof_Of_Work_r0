@@ -1,15 +1,13 @@
 name: Daily Habit Tweet
 
-on:
+on: # Corrected 'on' block
   schedule:
     # Runs daily at 1:30 AM UTC (9:30 PM EST the previous day with TZ=America/New_York)
     - cron: '30 1 * * *'
-  workflow_dispatch: # Allows manual triggering <--- THIS LINE WAS MISSING
+  workflow_dispatch: # Allows manual triggering
 
 permissions:
   contents: read # Read access to checkout the code
-
-
 
 jobs:
   tweet_habit_status:
@@ -52,7 +50,7 @@ jobs:
           # Specify lock file path for cache key generation (check if it exists first)
           cache-dependency-path: 'web/package-lock.json'
 
-      - name: Verify package-lock.json exists # ADDED STEP
+      - name: Verify package-lock.json exists
         id: check_lockfile
         run: |
           if [ -f "web/package-lock.json" ]; then
@@ -60,25 +58,27 @@ jobs:
             echo "exists=true" >> $GITHUB_OUTPUT
           else
             echo "::warning::web/package-lock.json not found!"
-            echo "exists=false" >> <span class="math-inline">GITHUB\_OUTPUT
-fi
-\- name\: Install Puppeteer system dependencies
-run\: \|
-echo "Installing Puppeteer system dependencies for Ubuntu\.\.\."
-sudo apt\-get update \-qq && sudo apt\-get install \-y \-\-no\-install\-recommends \-\-fix\-missing \\
-ca\-certificates fonts\-liberation libasound2t64 libatk\-bridge2\.0\-0t64 libatk1\.0\-0t64 \\
-libc6 libcairo2 libcups2t64 libdbus\-1\-3 libexpat1 libfontconfig1 libgbm1 libgcc\-s1 \\
-libgdk\-pixbuf\-2\.0\-0 libglib2\.0\-0t64 libgtk\-3\-0 libnspr4 libnss3 libpango\-1\.0\-0 \\
-libpangocairo\-1\.0\-0 libstdc\+\+6 libx11\-6 libx11\-xcb1 libxcb1 libxcomposite1 libxcursor1 \\
-libxdamage1 libxext6 libxfixes3 libxi6 libxrandr2 libxrender1 libxss1 libxtst6 \\
-lsb\-release wget xdg\-utils \|\| \{ echo "\:\:error\:\:Failed to install system dependencies"; exit 1; \}
-echo "System dependencies installed\."
-\- name\: Install web dependencies
-working\-directory\: \./web
-run\: \|
-echo "Installing web dependencies using npm ci or npm install\.\.\."
-\# Use output from previous step to decide install method
-if \[ "</span>{{ steps.check_lockfile.outputs.exists }}" == "true" ]; then
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Install Puppeteer system dependencies
+        run: |
+          echo "Installing Puppeteer system dependencies for Ubuntu..."
+          sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends --fix-missing \
+            ca-certificates fonts-liberation libasound2t64 libatk-bridge2.0-0t64 libatk1.0-0t64 \
+            libc6 libcairo2 libcups2t64 libdbus-1-3 libexpat1 libfontconfig1 libgbm1 libgcc-s1 \
+            libgdk-pixbuf-2.0-0 libglib2.0-0t64 libgtk-3-0 libnspr4 libnss3 libpango-1.0-0 \
+            libpangocairo-1.0-0 libstdc++6 libx11-6 libx11-xcb1 libxcb1 libxcomposite1 libxcursor1 \
+            libxdamage1 libxext6 libxfixes3 libxi6 libxrandr2 libxrender1 libxss1 libxtst6 \
+            lsb-release wget xdg-utils || { echo "::error::Failed to install system dependencies"; exit 1; }
+          echo "System dependencies installed."
+
+      - name: Install web dependencies
+        working-directory: ./web
+        run: |
+          echo "Installing web dependencies using npm ci or npm install..."
+          # Use output from previous step to decide install method
+          if [ "${{ steps.check_lockfile.outputs.exists }}" == "true" ]; then
             # Use npm ci for faster, reliable builds based on lock file
             # REMOVED --loglevel error to see full npm output on failure
             npm ci || { echo "::error::npm ci failed in ./web"; exit 1; }
@@ -109,6 +109,7 @@ if \[ "</span>{{ steps.check_lockfile.outputs.exists }}" == "true" ]; then
           echo "Installing screenshot script dependencies..."
           if [ -f package.json ]; then
             npm install || { echo "::error::npm install failed in ./scripts"; exit 1; }
+            # Ensure puppeteer is installed even if only listed as devDep potentially
             npm list puppeteer || npm install puppeteer@^23.5.0 --no-save || { echo "::error::Failed to install Puppeteer in ./scripts"; exit 1; }
           else
              echo "No package.json in ./scripts, attempting direct puppeteer install"
@@ -129,3 +130,102 @@ if \[ "</span>{{ steps.check_lockfile.outputs.exists }}" == "true" ]; then
           echo "Starting Next.js server in background..."
           npm run start > ../server.log 2>&1 &
           SERVER_PID=$!
+          echo "SERVER_PID=$SERVER_PID" >> $GITHUB_ENV
+          echo "Server started with PID: $SERVER_PID"
+          if [ -z "$SERVER_PID" ]; then
+            echo "::error::Failed to capture server PID!"
+            cat ../server.log
+            exit 1
+          fi
+
+      - name: Wait for server to become ready
+        run: |
+          echo "Waiting up to 60 seconds for server to start..."
+          n=0
+          until [ $n -ge 6 ]; do
+             # Check if the server process is still running before curling
+             if ! kill -0 ${{ env.SERVER_PID }} >/dev/null 2>&1; then
+               echo "::error::Server process ${{ env.SERVER_PID }} stopped unexpectedly during startup!"
+               cat server.log
+               exit 1
+             fi
+             # Attempt to curl
+             curl --fail --max-time 5 --silent --output /dev/null http://localhost:3000/habits && break
+             echo "Server not ready yet (attempt $((n+1)))..."
+             n=$((n+1))
+             sleep 10
+          done
+          if [ $n -ge 6 ]; then
+             echo "::error::Server did not become ready on http://localhost:3000/habits after 60s!"
+             cat server.log
+             # Try to kill the potentially hung server process
+             kill ${{ env.SERVER_PID }} 2>/dev/null || echo "Server process could not be killed."
+             exit 1
+          fi
+          echo "Server is ready."
+
+      - name: Take screenshot of Habits page
+        run: |
+          echo "Taking screenshot..."
+          # Ensure Node can find puppeteer installed in ./scripts/node_modules
+          # Setting NODE_PATH might help, or rely on node's resolution finding ./scripts/node_modules
+          node scripts/screenshot_habits.js || { echo "::error::Screenshot script failed"; exit 1; }
+          echo "Screenshot taken."
+
+      - name: Stop Next.js server
+        # Always run this step to ensure the server is stopped
+        if: always()
+        run: |
+          if [ -n "${{ env.SERVER_PID }}" ]; then
+            echo "Stopping server with PID ${{ env.SERVER_PID }}..."
+            # Send TERM signal first, then KILL if it doesn't stop
+            kill -TERM ${{ env.SERVER_PID }} 2>/dev/null
+            sleep 5 # Give it time to shut down gracefully
+            kill -KILL ${{ env.SERVER_PID }} 2>/dev/null || echo "Server process ${{ env.SERVER_PID }} stopped or not found."
+          else
+            echo "SERVER_PID was not set, cannot kill server."
+          fi
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip' # Cache pip dependencies based on requirements.txt
+
+      - name: Install Python dependencies
+        run: |
+          echo "Installing Python dependencies..."
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt || { echo "::error::Failed to install Python dependencies"; exit 1; }
+          echo "Python dependencies installed."
+
+      - name: Generate Tweet Message
+        id: tweet_msg
+        run: |
+          # Use the TZ env var set earlier
+          current_datetime=$(date +'%Y-%m-%d %H:%M:%S %Z')
+          echo "Generated message time: $current_datetime"
+          # Basic message, ensure it's safe for env vars
+          tweet_text="$current_datetime - Proof of Work"
+          # Simple echo is usually fine for this format
+          echo "TWEET_MESSAGE=${tweet_text}" >> $GITHUB_ENV
+
+      - name: Post Habits Screenshot to Twitter
+        run: |
+          echo "Posting to Twitter..."
+          # Ensure the script path and image path are correct relative to the root
+          python scripts/post_to_social.py --twitter scripts/habit_screenshot.png "$TWEET_MESSAGE" || { echo "::error::Twitter post failed"; exit 1; }
+          echo "Tweet posted."
+
+      - name: Upload debug logs and screenshot
+        # Always run this step to capture artifacts on success or failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: habit-tweet-logs-${{ github.run_id }}
+          path: |
+            scripts/habit_screenshot.png
+            scripts/debug_screenshot_error.png
+            scripts/*.log
+            server.log # Include server log
+          if-no-files-found: ignore # Don't fail if optional files don't exist
