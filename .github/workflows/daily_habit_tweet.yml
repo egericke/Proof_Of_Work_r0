@@ -1,6 +1,6 @@
 name: Daily Habit Tweet
 
-on: # Corrected 'on' block
+on:
   schedule:
     # Runs daily at 1:30 AM UTC (9:30 PM EST the previous day with TZ=America/New_York)
     - cron: '30 1 * * *'
@@ -45,21 +45,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          # Cache npm packages globally
+          # Cache npm packages globally, key based on the committed lock file
           cache: 'npm'
-          # Specify lock file path for cache key generation (check if it exists first)
-          cache-dependency-path: 'web/package-lock.json'
-
-      - name: Verify package-lock.json exists
-        id: check_lockfile
-        run: |
-          if [ -f "web/package-lock.json" ]; then
-            echo "web/package-lock.json found."
-            echo "exists=true" >> $GITHUB_OUTPUT
-          else
-            echo "::warning::web/package-lock.json not found!"
-            echo "exists=false" >> $GITHUB_OUTPUT
-          fi
+          cache-dependency-path: 'web/package-lock.json' # This should now work
 
       - name: Install Puppeteer system dependencies
         run: |
@@ -76,21 +64,14 @@ jobs:
       - name: Install web dependencies
         working-directory: ./web
         run: |
-          echo "Installing web dependencies using npm ci or npm install..."
-          # Use output from previous step to decide install method
-          if [ "${{ steps.check_lockfile.outputs.exists }}" == "true" ]; then
-            # Use npm ci for faster, reliable builds based on lock file
-            # REMOVED --loglevel error to see full npm output on failure
-            npm ci || { echo "::error::npm ci failed in ./web"; exit 1; }
-          else
-            echo "package-lock.json not found in ./web, running npm install"
-            # REMOVED --loglevel error to see full npm output on failure
-            npm install || { echo "::error::npm install failed in ./web"; exit 1; }
-          fi
-          echo "Web dependencies installation attempt complete."
+          echo "Installing web dependencies using npm ci..."
+          # Use npm ci now that package-lock.json is committed
+          # Keep verbose logging for now to catch any other potential errors
+          npm ci || { echo "::error::npm ci failed in ./web"; exit 1; }
+          echo "Web dependencies installation complete."
 
+      # Keep the debug step for one more run, just in case install fails again
       - name: DEBUG - Show web node_modules contents (optional)
-        # This will only run if the 'Install web dependencies' step fails
         if: failure()
         working-directory: ./web
         run: |
@@ -108,8 +89,13 @@ jobs:
         run: |
           echo "Installing screenshot script dependencies..."
           if [ -f package.json ]; then
-            npm install || { echo "::error::npm install failed in ./scripts"; exit 1; }
-            # Ensure puppeteer is installed even if only listed as devDep potentially
+            # Assuming scripts might also benefit from ci if lock file exists
+            if [ -f package-lock.json ]; then
+                npm ci || { echo "::error::npm ci failed in ./scripts"; exit 1; }
+            else
+                npm install || { echo "::error::npm install failed in ./scripts"; exit 1; }
+            fi
+            # Ensure puppeteer is installed
             npm list puppeteer || npm install puppeteer@^23.5.0 --no-save || { echo "::error::Failed to install Puppeteer in ./scripts"; exit 1; }
           else
              echo "No package.json in ./scripts, attempting direct puppeteer install"
@@ -143,13 +129,11 @@ jobs:
           echo "Waiting up to 60 seconds for server to start..."
           n=0
           until [ $n -ge 6 ]; do
-             # Check if the server process is still running before curling
              if ! kill -0 ${{ env.SERVER_PID }} >/dev/null 2>&1; then
                echo "::error::Server process ${{ env.SERVER_PID }} stopped unexpectedly during startup!"
                cat server.log
                exit 1
              fi
-             # Attempt to curl
              curl --fail --max-time 5 --silent --output /dev/null http://localhost:3000/habits && break
              echo "Server not ready yet (attempt $((n+1)))..."
              n=$((n+1))
@@ -158,7 +142,6 @@ jobs:
           if [ $n -ge 6 ]; then
              echo "::error::Server did not become ready on http://localhost:3000/habits after 60s!"
              cat server.log
-             # Try to kill the potentially hung server process
              kill ${{ env.SERVER_PID }} 2>/dev/null || echo "Server process could not be killed."
              exit 1
           fi
@@ -167,20 +150,16 @@ jobs:
       - name: Take screenshot of Habits page
         run: |
           echo "Taking screenshot..."
-          # Ensure Node can find puppeteer installed in ./scripts/node_modules
-          # Setting NODE_PATH might help, or rely on node's resolution finding ./scripts/node_modules
           node scripts/screenshot_habits.js || { echo "::error::Screenshot script failed"; exit 1; }
           echo "Screenshot taken."
 
       - name: Stop Next.js server
-        # Always run this step to ensure the server is stopped
         if: always()
         run: |
           if [ -n "${{ env.SERVER_PID }}" ]; then
             echo "Stopping server with PID ${{ env.SERVER_PID }}..."
-            # Send TERM signal first, then KILL if it doesn't stop
             kill -TERM ${{ env.SERVER_PID }} 2>/dev/null
-            sleep 5 # Give it time to shut down gracefully
+            sleep 5
             kill -KILL ${{ env.SERVER_PID }} 2>/dev/null || echo "Server process ${{ env.SERVER_PID }} stopped or not found."
           else
             echo "SERVER_PID was not set, cannot kill server."
@@ -190,7 +169,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-          cache: 'pip' # Cache pip dependencies based on requirements.txt
+          cache: 'pip'
 
       - name: Install Python dependencies
         run: |
@@ -202,23 +181,18 @@ jobs:
       - name: Generate Tweet Message
         id: tweet_msg
         run: |
-          # Use the TZ env var set earlier
           current_datetime=$(date +'%Y-%m-%d %H:%M:%S %Z')
           echo "Generated message time: $current_datetime"
-          # Basic message, ensure it's safe for env vars
           tweet_text="$current_datetime - Proof of Work"
-          # Simple echo is usually fine for this format
           echo "TWEET_MESSAGE=${tweet_text}" >> $GITHUB_ENV
 
       - name: Post Habits Screenshot to Twitter
         run: |
           echo "Posting to Twitter..."
-          # Ensure the script path and image path are correct relative to the root
           python scripts/post_to_social.py --twitter scripts/habit_screenshot.png "$TWEET_MESSAGE" || { echo "::error::Twitter post failed"; exit 1; }
           echo "Tweet posted."
 
       - name: Upload debug logs and screenshot
-        # Always run this step to capture artifacts on success or failure
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -227,5 +201,5 @@ jobs:
             scripts/habit_screenshot.png
             scripts/debug_screenshot_error.png
             scripts/*.log
-            server.log # Include server log
-          if-no-files-found: ignore # Don't fail if optional files don't exist
+            server.log
+          if-no-files-found: ignore
