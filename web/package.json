@@ -22,7 +22,7 @@
     "autoprefixer": "^10.4.16",
     "postcss": "^8.4.33",
     "tailwindcss": "^3.4.1",
-    "tailwindcss/nesting": "latest"  // Added this line
+    "tailwindcss/nesting": "latest"
   },
   "engines": {
     "node": ">=18.0.0"
